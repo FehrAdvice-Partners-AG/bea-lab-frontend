@@ -1101,18 +1101,57 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        function showTyping() {
+        function showTyping(message) {
             const container = document.getElementById('chatMessages');
+            const existing = document.getElementById('typingIndicator');
+            if (existing) existing.remove();
             container.insertAdjacentHTML('beforeend', `<div class="chat-msg assistant" id="typingIndicator">
                 <div class="chat-msg-avatar">B</div>
-                <div class="chat-msg-body"><div class="chat-typing"><span></span><span></span><span></span></div></div>
+                <div class="chat-msg-body">
+                    <div style="display:flex;align-items:center;gap:10px;color:var(--text-muted);">
+                        <div class="chat-typing"><span></span><span></span><span></span></div>
+                        <span id="typingText">${message || 'BEATRIX denkt nach...'}</span>
+                    </div>
+                </div>
             </div>`);
             container.scrollTop = container.scrollHeight;
+        }
+
+        function updateTypingText(text) {
+            const el = document.getElementById('typingText');
+            if (el) el.textContent = text;
         }
 
         function removeTyping() {
             const el = document.getElementById('typingIndicator');
             if (el) el.remove();
+        }
+
+        async function pollForAnswer(issueNumber) {
+            const maxAttempts = 60; // 5 min max
+            const interval = 5000; // 5 seconds
+            const phases = [
+                'BEATRIX liest das Evidence-Based Framework...',
+                'Analysiert relevante Modelle und Axiome...',
+                'Prüft Ψ-Dimensionen und Kontextfaktoren...',
+                'Formuliert die Antwort...'
+            ];
+
+            for (let i = 0; i < maxAttempts; i++) {
+                // Update phase message
+                const phase = phases[Math.min(Math.floor(i / 5), phases.length - 1)];
+                updateTypingText(phase);
+
+                await new Promise(r => setTimeout(r, interval));
+                try {
+                    const r = await fetch(`${API}/chat/poll/${issueNumber}`, {headers:H()});
+                    if (r.status === 401) { doLogout(); return null; }
+                    const data = await r.json();
+                    if (data.status === 'done') return data;
+                    if (data.status === 'error') return {status:'error', answer: data.message};
+                } catch(e) { /* retry */ }
+            }
+            return {status: 'timeout', answer: 'Die Analyse dauert länger als erwartet. Die Antwort wird in Issue #' + issueNumber + ' auf GitHub erscheinen.'};
         }
 
         async function sendChat() {
@@ -1123,14 +1162,27 @@
             input.value = ''; autoResize(input);
             btn.disabled = true;
             appendMessage('user', question);
-            showTyping();
+            showTyping('BEATRIX startet die Analyse mit dem Evidence-Based Framework...');
             try {
                 const r = await fetch(`${API}/chat`, {method:'POST', headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify({question})});
-                removeTyping();
                 if (r.status === 401) { doLogout(); return; }
                 const d = await r.json();
-                if (!r.ok) { appendMessage('assistant', d.detail || 'Entschuldigung, es gab einen Fehler.'); return; }
-                appendMessage('assistant', d.answer, d.sources);
+                if (!r.ok) { removeTyping(); appendMessage('assistant', d.detail || 'Entschuldigung, es gab einen Fehler.'); return; }
+
+                if (d.status === 'processing' && d.issue_number) {
+                    // Poll for Claude Code's answer
+                    const result = await pollForAnswer(d.issue_number);
+                    removeTyping();
+                    if (result && result.answer) {
+                        appendMessage('assistant', result.answer, [{title: '📎 GitHub Analysis', type: 'github', url: d.issue_url}]);
+                    } else {
+                        appendMessage('assistant', 'BEATRIX konnte keine Antwort generieren. Versuche es erneut.');
+                    }
+                } else if (d.answer) {
+                    // Direct answer (fallback)
+                    removeTyping();
+                    appendMessage('assistant', d.answer, d.sources);
+                }
             } catch(e) {
                 removeTyping();
                 appendMessage('assistant', 'Verbindungsfehler. Bitte versuche es erneut.');
