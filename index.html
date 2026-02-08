@@ -410,7 +410,7 @@
     </div>
 
     <script>
-        const API = window.location.hostname.includes('railway.app') ? '/api' : 'https://bea-lab-upload-production.up.railway.app/api';
+        const API = '/api';
         let files=[], tags=[], selectedDB='knowledge_base', currentTab='file', authToken=null, currentUser=null;
 
         function H() { return authToken ? {'Authorization':`Bearer ${authToken}`} : {}; }
