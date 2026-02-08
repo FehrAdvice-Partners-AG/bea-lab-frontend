@@ -677,6 +677,8 @@
             if(el){document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));el.classList.add('active');}
             document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
             const sec=document.getElementById(name+'-section'); if(sec) sec.classList.add('active');
+            // Hero nur bei Upload/Home anzeigen
+            document.getElementById('hero-section').style.display = (name==='upload'||name==='hero') ? '' : 'none';
             if(name==='documents') loadDocuments();
             if(name==='admin') loadAdminData();
             if(name==='profile') loadProfile();
