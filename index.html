@@ -1162,24 +1162,28 @@
             input.value = ''; autoResize(input);
             btn.disabled = true;
             appendMessage('user', question);
-            showTyping('BEATRIX startet die Analyse mit dem Evidence-Based Framework...');
+            showTyping('BEATRIX sucht in der Wissensbasis...');
             try {
                 const r = await fetch(`${API}/chat`, {method:'POST', headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify({question})});
                 if (r.status === 401) { doLogout(); return; }
                 const d = await r.json();
                 if (!r.ok) { removeTyping(); appendMessage('assistant', d.detail || 'Entschuldigung, es gab einen Fehler.'); return; }
 
-                if (d.status === 'processing' && d.issue_number) {
-                    // Poll for Claude Code's answer
+                if (d.status === 'done' && d.path === 'fast') {
+                    // ⚡ FAST PATH: Instant answer from Knowledge Base
+                    removeTyping();
+                    appendMessage('assistant', d.answer, d.sources);
+                } else if (d.status === 'processing' && d.issue_number) {
+                    // 🔬 DEEP PATH: Claude Code analysis
+                    showTyping('Neue Frage! BEATRIX erarbeitet die Antwort mit dem EBF Framework (~3-5 Min)...');
                     const result = await pollForAnswer(d.issue_number);
                     removeTyping();
                     if (result && result.answer) {
-                        appendMessage('assistant', result.answer, [{title: '📎 GitHub Analysis', type: 'github', url: d.issue_url}]);
+                        appendMessage('assistant', result.answer, [{title: '🔬 EBF Deep Analysis', type: 'github', url: d.issue_url}]);
                     } else {
                         appendMessage('assistant', 'BEATRIX konnte keine Antwort generieren. Versuche es erneut.');
                     }
                 } else if (d.answer) {
-                    // Direct answer (fallback)
                     removeTyping();
                     appendMessage('assistant', d.answer, d.sources);
                 }
