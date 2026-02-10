@@ -1319,6 +1319,7 @@
                     <div class="mb-actions">
                         <button class="mb-btn mb-btn-back" onclick="caBack(3)">← Zurück</button>
                         <button class="mb-btn mb-btn-secondary" id="caSaveBtn" onclick="caSaveAndUse()">💾 Speichern</button>
+                        <button class="mb-btn mb-btn-secondary" id="caDeepenBtn" onclick="caDeepen()" style="display:none;background:rgba(255,170,0,0.15);border-color:rgba(255,170,0,0.4);color:#ffaa00">🔍 Kontext vertiefen</button>
                         <button class="mb-btn mb-btn-primary" onclick="caUseInChat()">💬 Im Chat verwenden →</button>
                     </div>
                 </div>
@@ -2612,6 +2613,35 @@
             caUpdateProgress(toStep);
         }
 
+        async function caDeepen() {
+            // Auto-save schnell result first (v1)
+            if (!caState.currentVersionId) {
+                await caSaveAndUse();
+            }
+            // Switch to tief mode, keep question + lineage
+            const keepQuestion = caState.question;
+            const keepLineage = caState.lineageId;
+            caState.mode = 'tief';
+            caState.result = null;
+            caState.step = 1;
+            // Reset context selections
+            caState.macro = null; caState.meso = null; caState.micro = null;
+            // Re-populate question
+            const qEl = document.getElementById('caQuestion');
+            if (qEl) qEl.value = keepQuestion;
+            caState.question = keepQuestion;
+            caState.lineageId = keepLineage;
+            // Navigate to macro context (step 1)
+            document.getElementById('caProgress').style.display = 'flex';
+            caShowPanel('caStep1');
+            caUpdateProgress(1);
+            // Reset step selections
+            document.querySelectorAll('#caStep1 .mb-choice, #caStep2 .mb-choice').forEach(c => c.classList.remove('selected'));
+            document.getElementById('caStep1Btn').disabled = true;
+            document.getElementById('caStep2Btn').disabled = true;
+            showToast('🔍 Jetzt Kontext vertiefen — gleiche Frage, tiefere Analyse', 'info');
+        }
+
         function caSelect(el, value) {
             const parent = el.closest('.mb-choices') || el.parentElement;
             parent.querySelectorAll('.mb-choice').forEach(c => c.classList.remove('selected'));
@@ -2865,6 +2895,10 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             document.querySelector('#caStep4 .mb-step-title').textContent = 'Ψ-Profil — Ergebnis';
             document.querySelector('#caStep4 .mb-step-desc').textContent = caState.question;
             caUpdateProgress(5);
+
+            // Show "Kontext vertiefen" button only in schnell mode
+            const deepenBtn = document.getElementById('caDeepenBtn');
+            if (deepenBtn) deepenBtn.style.display = caState.mode === 'schnell' ? 'inline-flex' : 'none';
 
             // 0) Allgemeine Perspektive — Big Picture
             const perspEl = document.getElementById('caPerspectiveText');
