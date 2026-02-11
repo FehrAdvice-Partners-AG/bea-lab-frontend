@@ -748,7 +748,7 @@
                     <div class="input-group"><label>Kategorie</label><select class="input-field" id="textCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="note">Notiz</option></select></div>
                     <div class="input-group"><label>Sprache</label><select class="input-field" id="textLang"><option value="de">Deutsch</option><option value="en">English</option></select></div>
                 </div>
-                <div class="input-group"><label>Tags</label><div class="tag-container" onclick="this.querySelector('.tag-input').focus()"><input type="text" class="tag-input" id="tagInput" placeholder="Tag eingeben + Enter"></div></div>
+                <div class="input-group"><label>Tags</label><div class="tag-container" id="tagContainer" onclick="this.querySelector('.tag-input').focus()"><input type="text" class="tag-input" id="tagInput" placeholder="Tag eingeben + Enter"></div></div>
                 <div class="input-group"><label>Inhalt</label><textarea class="textarea-field" id="textContent" placeholder="Text oder Axiom-Definition hier einfügen..." onpaste="setTimeout(()=>analyzeTextContent(),300)" oninput="debounceTextAnalysis()"></textarea></div>
             </div>
             <div class="actions">
@@ -3204,7 +3204,7 @@
 
         document.getElementById('tagInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.value.trim()){e.preventDefault();if(!tags.includes(e.target.value.trim())){tags.push(e.target.value.trim());renderTags();}e.target.value='';}});
         function removeTag(t){tags=tags.filter(x=>x!==t);renderTags();}
-        function renderTags(){const c=document.getElementById('tagContainer'),inp=document.getElementById('tagInput');c.innerHTML='';tags.forEach(t=>{const s=document.createElement('span');s.className='tag';s.innerHTML=`${t} <button onclick="removeTag('${t}')">&times;</button>`;c.appendChild(s);});c.appendChild(inp);}
+        function renderTags(){const c=document.getElementById('tagContainer'),inp=document.getElementById('tagInput');if(!c||!inp)return;c.innerHTML='';tags.forEach(t=>{const s=document.createElement('span');s.className='tag';s.innerHTML=`${t} <button onclick="removeTag('${t}')">&times;</button>`;c.appendChild(s);});c.appendChild(inp);}
 
         // ── Text Auto-Analysis (on paste / input) ──
         let textAnalysisTimer = null;
