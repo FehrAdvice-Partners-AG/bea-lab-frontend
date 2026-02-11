@@ -8390,10 +8390,25 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             // Immediately prevent double-send
             _chatSending = true;
             btn.disabled = true;
-            // Safety: auto-reset after 45s to prevent permanent stuck
+            // Safety: auto-reset after 120s to prevent permanent stuck state
             const _safetyTimer = setTimeout(() => {
-                if (_chatSending) { _chatSending = false; btn.disabled = false; console.warn('BEATRIX: safety reset _chatSending after timeout'); }
-            }, 45000);
+                if (_chatSending) {
+                    _chatSending = false; btn.disabled = false;
+                    removeTyping();
+                    // Clean up stuck streaming dots
+                    const stuckDots = document.querySelector('#bxStreamText .typing-dots');
+                    if (stuckDots) stuckDots.remove();
+                    const stuckStream = document.getElementById('bxStreamMsg');
+                    if (stuckStream) {
+                        const body = stuckStream.querySelector('.chat-msg-body');
+                        const text = body?.textContent?.trim();
+                        if (text === '●●●' || text === '') {
+                            body.innerHTML = '<span style="color:#fbbf24">⏱ Zeitüberschreitung – bitte nochmal versuchen.</span>';
+                        }
+                    }
+                    console.warn('BEATRIX: safety reset after timeout');
+                }
+            }, 120000);
 
             // ── Auto-detect intent OR use command mode ──
             // BUT: if attachments present, always use normal stream (supports Vision)
@@ -8888,10 +8903,15 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const intentLabels = {project:'Projekt analysieren',lead:'Lead analysieren',model:'Modell bauen',context:'Kontext erfassen'};
             showTyping(bxCmdIntent ? `BEATRIX: ${intentLabels[bxCmdIntent]||'analysiert'}...` : 'BEATRIX erkennt Intent...');
 
+            // Timeout controller - kill stuck requests after 90s
+            const abortCtrl = new AbortController();
+            const fetchTimeout = setTimeout(() => abortCtrl.abort(), 90000);
+
             try {
                 const r = await fetch(`${API}/chat/intent/stream`, {
                     method:'POST',
                     headers:{...H(),'Content-Type':'application/json'},
+                    signal: abortCtrl.signal,
                     body: JSON.stringify({
                         message, history: bxCmdHistory, current_draft: bxCmdDraft,
                         intent: bxCmdIntent, session_id: chatSessionId,
@@ -8946,6 +8966,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                             removeTyping();
                             // Handle redirect to KB - call stream API directly (message already shown)
                             if (evt.status === 'redirect_kb') {
+                                clearTimeout(fetchTimeout);
                                 bxCmdMode = false;
                                 toggleBxCmd();
                                 // Stream response directly from /chat/stream
@@ -8960,9 +8981,12 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                                 container.scrollTop = container.scrollHeight;
                                 const targetEl = document.getElementById(streamMsgId);
                                 let fullText = '';
+                                const kbAbort = new AbortController();
+                                const kbTimeout = setTimeout(() => kbAbort.abort(), 90000);
                                 try {
                                     const sr = await fetch(`${API}/chat/stream`, {
                                         method:'POST', headers:{...H(),'Content-Type':'application/json'},
+                                        signal: kbAbort.signal,
                                         body: JSON.stringify({question: message, session_id: chatSessionId, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))})
                                     });
                                     const sReader = sr.body.getReader();
@@ -8990,8 +9014,11 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                                     }
                                     targetEl.innerHTML = mbRenderMd(fullText);
                                 } catch(e) {
-                                    targetEl.innerHTML = '<span style="color:var(--error)">Fehler: ' + e.message + '</span>';
+                                    targetEl.innerHTML = e.name === 'AbortError'
+                                        ? '<span style="color:#fbbf24">⏱ Zeitüberschreitung – bitte nochmal versuchen.</span>'
+                                        : '<span style="color:var(--error)">Fehler: ' + e.message + '</span>';
                                 }
+                                clearTimeout(kbTimeout);
                                 _chatSending = false;
                                 btn.disabled = false; input.focus(); return;
                             }
@@ -9084,12 +9111,36 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 } else if (streamedText) {
                     // No structured data, just text
                     bxCmdHistory.push({role:'assistant', content: streamedText});
+                } else {
+                    // Nothing at all - show fallback
+                    const stuckDiv = document.getElementById('bxStreamMsg');
+                    if (stuckDiv) {
+                        stuckDiv.querySelector('.chat-msg-body').innerHTML = '<span style="color:#fbbf24">Keine Antwort erhalten – bitte nochmal versuchen.</span>';
+                    }
                 }
 
             } catch(e) {
                 removeTyping();
-                appendMessage('assistant', 'Verbindungsfehler: ' + e.message);
+                // Clean up stuck streaming dots
+                const stuckStream = document.getElementById('bxStreamMsg');
+                if (stuckStream) {
+                    const body = stuckStream.querySelector('.chat-msg-body');
+                    if (body && body.textContent.trim() === '●●●') {
+                        body.innerHTML = e.name === 'AbortError'
+                            ? '<span style="color:#fbbf24">⏱ Zeitüberschreitung – bitte nochmal versuchen.</span>'
+                            : `<span style="color:#f87171">Verbindungsfehler: ${e.message}</span>`;
+                    }
+                } else {
+                    appendMessage('assistant', e.name === 'AbortError'
+                        ? '⏱ Zeitüberschreitung – bitte nochmal versuchen.'
+                        : 'Verbindungsfehler: ' + e.message);
+                }
             }
+            clearTimeout(fetchTimeout);
+            // Always clean up stuck streaming indicators
+            const leftoverDots = document.querySelector('#bxStreamText .typing-dots');
+            if (leftoverDots) leftoverDots.remove();
+            removeTyping();
             _chatSending = false;
             btn.disabled = false;
             input.focus();
