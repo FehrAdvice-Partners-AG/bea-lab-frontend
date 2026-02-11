@@ -700,7 +700,7 @@
                 <p>Deine Fragen zu Behavioral Economics, BCM und der Knowledge Base</p>
                 <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:6px">
                     <span id="chatSessionBadge" style="font-size:10px;color:var(--text-muted);font-family:monospace;background:rgba(255,255,255,0.04);padding:2px 8px;border-radius:4px;cursor:pointer" title="Session-ID kopieren" onclick="navigator.clipboard.writeText(chatSessionId);this.textContent='✓ kopiert';setTimeout(()=>updateSessionBadge(),1500)"></span>
-                    <span id="chatSessionType" style="font-size:11px;padding:2px 10px;border-radius:12px;display:none;font-weight:600;letter-spacing:0.02em"></span>
+                    <span id="chatSessionType" style="font-size:11px;padding:2px 10px;border-radius:12px;display:none;font-weight:600;letter-spacing:0.02em;cursor:pointer;position:relative" title="Klick zum Wechseln" onclick="showSessionTypePicker(this)"></span>
                     <button onclick="startNewChatSession()" style="font-size:11px;padding:3px 10px;background:rgba(42,127,142,0.1);border:1px solid rgba(42,127,142,0.25);border-radius:6px;color:var(--accent-light);cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(42,127,142,0.2)'" onmouseleave="this.style.background='rgba(42,127,142,0.1)'">+ Neuer Chat</button>
                 </div>
             </div>
@@ -2868,6 +2868,12 @@
             if(document.getElementById('fbBtn')) document.getElementById('fbBtn').style.display = 'flex';
             loadStats();
             showToast(`Willkommen, ${data.user.name || data.user.email}!`, 'success');
+            // Resume or init session
+            if (!loadSessionFromStorage()) {
+                chatSessionId = generateSessionId();
+                saveSessionToStorage();
+            }
+            setTimeout(() => { updateSessionBadge(); resumeSession(); }, 300);
             // Trigger insight question after login
             setTimeout(() => insightStart('login'), 800);
         }
@@ -3114,6 +3120,7 @@
         function doLogout() {
             authToken=null; currentUser=null;
             sessionStorage.removeItem('bea_token'); sessionStorage.removeItem('bea_user');
+            clearSessionStorage();
             if(document.getElementById('fbBtn')) document.getElementById('fbBtn').style.display = 'none';
             document.getElementById('authOverlay').classList.remove('hidden');
             document.getElementById('loginEmail').value=''; document.getElementById('loginPassword').value='';
@@ -8265,7 +8272,47 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
         // ── Main Chat File Upload ──
         let mainChatAttachments = [];
-        let chatSessionId = 'S-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6);
+
+        // ── Session Persistence ──
+        function generateSessionId() {
+            return 'S-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6);
+        }
+        function saveSessionToStorage() {
+            try {
+                localStorage.setItem('bx_session_id', chatSessionId);
+                localStorage.setItem('bx_session_type', chatSessionType || 'general');
+                localStorage.setItem('bx_session_entities', JSON.stringify(chatSessionEntities || {}));
+                localStorage.setItem('bx_session_ts', Date.now().toString());
+            } catch(e) {}
+        }
+        function loadSessionFromStorage() {
+            try {
+                const sid = localStorage.getItem('bx_session_id');
+                const ts = parseInt(localStorage.getItem('bx_session_ts') || '0');
+                // Session expires after 4 hours of inactivity
+                if (sid && ts && (Date.now() - ts) < 4 * 60 * 60 * 1000) {
+                    chatSessionId = sid;
+                    chatSessionType = localStorage.getItem('bx_session_type') || 'general';
+                    try { chatSessionEntities = JSON.parse(localStorage.getItem('bx_session_entities') || '{}'); } catch { chatSessionEntities = {}; }
+                    return true;
+                }
+            } catch(e) {}
+            return false;
+        }
+        function clearSessionStorage() {
+            try {
+                localStorage.removeItem('bx_session_id');
+                localStorage.removeItem('bx_session_type');
+                localStorage.removeItem('bx_session_entities');
+                localStorage.removeItem('bx_session_ts');
+            } catch(e) {}
+        }
+
+        // Init: restore or create
+        let chatSessionId;
+        if (!loadSessionFromStorage()) {
+            chatSessionId = generateSessionId();
+        }
 
         async function mainChatFileSelected(input) {
             const files = Array.from(input.files);
@@ -8510,6 +8557,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const badge = document.getElementById('chatSessionBadge');
             if (badge) badge.textContent = chatSessionId;
             updateSessionTypeBadge();
+            saveSessionToStorage();
         }
         function updateSessionTypeBadge(type) {
             if (type) chatSessionType = type;
@@ -8525,16 +8573,17 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             el.style.background = `rgba(${st.color},0.15)`;
             el.style.color = `rgba(${st.color},0.9)`;
             el.style.border = `1px solid rgba(${st.color},0.3)`;
+            saveSessionToStorage();
         }
         function startNewChatSession() {
-            chatSessionId = 'S-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6);
+            chatSessionId = generateSessionId();
             chatSessionType = 'general';
             chatSessionEntities = {};
+            saveSessionToStorage();
             updateSessionBadge();
             // Clear chat messages
             const container = document.getElementById('chatMessages');
             if (container) {
-                // Keep only welcome
                 const welcome = container.querySelector('.chat-welcome');
                 container.innerHTML = '';
                 if (welcome) { welcome.style.display = ''; container.appendChild(welcome); }
@@ -8545,8 +8594,61 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             bxCmdIntent = '';
             _chatSending = false;
         }
-        // Init session badge on load
-        setTimeout(updateSessionBadge, 100);
+        function showSessionTypePicker(anchor) {
+            // Remove existing picker
+            const old = document.getElementById('sessionTypePicker');
+            if (old) { old.remove(); return; }
+            const types = Object.entries(SESSION_TYPES).filter(([k]) => k !== 'general');
+            let html = types.map(([k, v]) =>
+                `<div onclick="switchSessionType('${k}')" style="padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;transition:background 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.08)'" onmouseleave="this.style.background='transparent'"><span style="font-size:14px">${v.icon}</span><span style="font-size:12px;color:rgba(${v.color},0.9)">${v.label}</span></div>`
+            ).join('');
+            const picker = document.createElement('div');
+            picker.id = 'sessionTypePicker';
+            picker.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,0.3)';
+            picker.innerHTML = html;
+            anchor.parentElement.style.position = 'relative';
+            anchor.parentElement.appendChild(picker);
+            setTimeout(() => document.addEventListener('click', function rem(e) {
+                if (!picker.contains(e.target)) { picker.remove(); document.removeEventListener('click', rem); }
+            }), 10);
+        }
+        async function switchSessionType(type) {
+            const old = document.getElementById('sessionTypePicker');
+            if (old) old.remove();
+            chatSessionType = type;
+            updateSessionTypeBadge(type);
+            saveSessionToStorage();
+            // Persist to backend
+            try {
+                await fetch(`${API}/chat/session/${chatSessionId}/type`, {
+                    method: 'PUT', headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify({type})
+                });
+            } catch(e) {}
+            const st = SESSION_TYPES[type] || SESSION_TYPES.general;
+            const container = document.getElementById('chatMessages');
+            if (container) {
+                container.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:6px 0;margin:4px 0"><span style="font-size:11px;padding:3px 12px;border-radius:12px;background:rgba(${st.color},0.1);color:rgba(${st.color},0.85);border:1px solid rgba(${st.color},0.2)">↻ Gewechselt zu ${st.icon} ${st.label}</span></div>`);
+            }
+        }
+        async function resumeSession() {
+            /* On login/reload: restore session state from backend if localStorage only has partial info */
+            if (!chatSessionId) return;
+            try {
+                const r = await fetch(`${API}/chat/session/${chatSessionId}`, {headers: H()});
+                if (r.ok) {
+                    const s = await r.json();
+                    if (s.type && s.type !== 'general') {
+                        chatSessionType = s.type;
+                        chatSessionEntities = s.entities || {};
+                        updateSessionTypeBadge(s.type);
+                        saveSessionToStorage();
+                    }
+                }
+            } catch(e) {}
+        }
+        // Init session badge on load + resume from backend
+        setTimeout(() => { updateSessionBadge(); resumeSession(); }, 200);
 
         function askSuggestion(el) {
             document.getElementById('chatInput').value = el.textContent;
