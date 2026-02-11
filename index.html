@@ -184,6 +184,8 @@
         @keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
         .spinner { width:14px; height:14px; border:2px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 0.6s linear infinite; }
         @keyframes spin { to{transform:rotate(360deg)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes fadeSlideIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         .mb-default-badge { display:inline-block;font-size:10px;font-weight:600;color:var(--accent);background:rgba(139,170,255,0.1);border:1px solid rgba(139,170,255,0.2);padding:2px 8px;border-radius:10px;margin-top:6px;letter-spacing:0.3px;text-transform:uppercase; }
@@ -3481,16 +3483,153 @@
             if(currentTab==='file'){
                 if(!files.length){showToast('Bitte Dateien auswählen','error');return;}
                 btn.disabled=true;btn.innerHTML='<div class="spinner"></div> Hochladen...';
-                for(const f of files){if(f.status!=='pending')continue;f.status='uploading';renderFileList();
-                    try{const fd=new FormData();fd.append('file',f.file);fd.append('database',selectedDB);const r=await fetch(`${API}/upload`,{method:'POST',headers:H(),body:fd});if(r.status===401){doLogout();showToast('Sitzung abgelaufen','error');return;}if(!r.ok)throw new Error(await r.text());f.status='success';f.progress=100;}catch(e){f.status='error';showToast(`${f.file.name}: ${e.message}`,'error');}renderFileList();}
-                const ok=files.filter(f=>f.status==='success').length;if(ok)showToast(`${ok} Datei${ok>1?'en':''} hochgeladen`,'success');
+                for(const f of files){
+                    if(f.status!=='pending')continue;
+                    f.status='uploading';renderFileList();
+                    try{
+                        const fd=new FormData();fd.append('file',f.file);fd.append('database',selectedDB);
+                        const r=await fetch(`${API}/upload`,{method:'POST',headers:H(),body:fd});
+                        if(r.status===401){doLogout();showToast('Sitzung abgelaufen','error');return;}
+                        if(r.status===409){
+                            const dup=await r.json();
+                            showDuplicateModal(dup);
+                            f.status='error';renderFileList();continue;
+                        }
+                        if(!r.ok)throw new Error(await r.text());
+                        f.status='success';f.progress=100;
+                    }catch(e){f.status='error';showToast(`${f.file.name}: ${e.message}`,'error');}
+                    renderFileList();
+                }
+                const ok=files.filter(f=>f.status==='success').length;
+                if(ok)showToast(`${ok} Datei${ok>1?'en':''} hochgeladen`,'success');
             } else {
                 const title=document.getElementById('textTitle').value.trim(),content=document.getElementById('textContent').value.trim();
                 if(!content){showToast('Bitte Text eingeben','error');return;}
                 btn.disabled=true;btn.innerHTML='<div class="spinner"></div> Speichern...';
-                try{const r=await fetch(`${API}/text`,{method:'POST',headers:{...H(),'Content-Type':'application/json'},body:JSON.stringify({title:title||'Untitled',content,category:document.getElementById('textCategory').value,language:document.getElementById('textLang').value,tags,database:selectedDB})});if(r.status===401){doLogout();showToast('Sitzung abgelaufen','error');return;}if(!r.ok)throw new Error(await r.text());showToast('Text gespeichert','success');document.getElementById('textTitle').value='';document.getElementById('textContent').value='';tags=[];renderTags();lastAnalyzedLength=0;document.getElementById('textAnalysisPreview').style.display='none';}catch(e){showToast(e.message,'error');}
+                try{
+                    const r=await fetch(`${API}/text`,{method:'POST',headers:{...H(),'Content-Type':'application/json'},body:JSON.stringify({title:title||'Untitled',content,category:document.getElementById('textCategory').value,language:document.getElementById('textLang').value,tags,database:selectedDB})});
+                    if(r.status===401){doLogout();showToast('Sitzung abgelaufen','error');return;}
+                    if(r.status===409){
+                        const dup=await r.json();
+                        showDuplicateModal(dup);
+                        btn.disabled=false;btn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> In Datenbank laden';
+                        return;
+                    }
+                    if(!r.ok)throw new Error(await r.text());
+                    showToast('Text gespeichert','success');
+                    document.getElementById('textTitle').value='';document.getElementById('textContent').value='';
+                    tags=[];renderTags();lastAnalyzedLength=0;
+                    document.getElementById('textAnalysisPreview').style.display='none';
+                }catch(e){showToast(e.message,'error');}
             }
             btn.disabled=false;btn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> In Datenbank laden';loadStats();
+        }
+
+        function showDuplicateModal(dup) {
+            // Remove existing modal
+            const old = document.getElementById('duplicateModal');
+            if (old) old.remove();
+
+            const catIcons = {paper:'📚',report:'📊',presentation:'📑',note:'📝',document:'📄'};
+            const icon = catIcons[dup.category] || '📄';
+            const tagsHtml = (dup.tags||[]).filter(t=>t.trim()).map(t =>
+                `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;background:rgba(99,102,241,0.15);color:rgba(129,140,248,0.9);margin:2px">${t.trim()}</span>`
+            ).join('');
+
+            const modal = document.createElement('div');
+            modal.id = 'duplicateModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);animation:fadeIn 0.2s ease';
+            modal.innerHTML = `
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:520px;width:92vw;padding:0;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:slideUp 0.25s ease">
+                    <!-- Header with green success accent -->
+                    <div style="background:linear-gradient(135deg,rgba(52,211,153,0.12),rgba(99,102,241,0.08));padding:28px 28px 20px;border-bottom:1px solid var(--border)">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                            <div style="width:44px;height:44px;border-radius:12px;background:rgba(52,211,153,0.15);display:flex;align-items:center;justify-content:center;font-size:22px">✅</div>
+                            <div>
+                                <div style="font-size:13px;color:rgba(52,211,153,0.9);font-weight:600;letter-spacing:0.3px">Bereits in der Wissensdatenbank</div>
+                                <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Duplikat erkannt</div>
+                            </div>
+                        </div>
+                        <div style="font-size:15px;font-weight:600;color:var(--text-primary);line-height:1.4">${icon} ${dup.title}</div>
+                    </div>
+
+                    <!-- Body -->
+                    <div style="padding:20px 28px">
+                        <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0 0 16px">
+                            Dieses Dokument wurde am <strong style="color:var(--text-primary)">${dup.date}</strong> erfolgreich in die BEATRIX-Wissensdatenbank aufgenommen. 
+                            Es muss nicht erneut hochgeladen werden.
+                        </p>
+                        ${tagsHtml ? `<div style="margin-bottom:16px">${tagsHtml}</div>` : ''}
+                        <p style="font-size:12px;color:var(--text-muted);margin:0">
+                            Ich kann dir aber helfen, dieses Paper besser zu verstehen:
+                        </p>
+                    </div>
+
+                    <!-- Action Choices -->
+                    <div style="padding:0 28px 24px;display:flex;flex-direction:column;gap:8px">
+                        <button onclick="duplicateAction('explain','${dup.doc_id}','${escAttr(dup.title)}')" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(99,102,241,0.3);background:rgba(99,102,241,0.08);color:rgba(165,180,252,0.95);font-size:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all 0.15s" onmouseenter="this.style.background='rgba(99,102,241,0.15)';this.style.borderColor='rgba(99,102,241,0.5)'" onmouseleave="this.style.background='rgba(99,102,241,0.08)';this.style.borderColor='rgba(99,102,241,0.3)'">
+                            <span style="font-size:16px">🔍</span>
+                            <div>
+                                <div style="font-weight:500">Zusammenfassung & Kernaussagen</div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Was sind die wichtigsten Erkenntnisse dieses Papers?</div>
+                            </div>
+                        </button>
+                        <button onclick="duplicateAction('relevance','${dup.doc_id}','${escAttr(dup.title)}')" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(52,211,153,0.3);background:rgba(52,211,153,0.08);color:rgba(110,231,183,0.95);font-size:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all 0.15s" onmouseenter="this.style.background='rgba(52,211,153,0.15)';this.style.borderColor='rgba(52,211,153,0.5)'" onmouseleave="this.style.background='rgba(52,211,153,0.08)';this.style.borderColor='rgba(52,211,153,0.3)'">
+                            <span style="font-size:16px">🧩</span>
+                            <div>
+                                <div style="font-weight:500">Relevanz für unsere Projekte</div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Wo spielt dieses Paper im BCM-Kontext eine Rolle?</div>
+                            </div>
+                        </button>
+                        <button onclick="duplicateAction('connections','${dup.doc_id}','${escAttr(dup.title)}')" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.06);color:rgba(253,224,71,0.9);font-size:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all 0.15s" onmouseenter="this.style.background='rgba(251,191,36,0.12)';this.style.borderColor='rgba(251,191,36,0.5)'" onmouseleave="this.style.background='rgba(251,191,36,0.06)';this.style.borderColor='rgba(251,191,36,0.3)'">
+                            <span style="font-size:16px">🔗</span>
+                            <div>
+                                <div style="font-weight:500">Verbindungen zu anderen Papers</div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Welche verwandten Studien haben wir in der Wissensdatenbank?</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="padding:0 28px 20px;text-align:center">
+                        <button onclick="closeDuplicateModal()" style="padding:8px 24px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.borderColor='var(--text-secondary)'" onmouseleave="this.style.borderColor='var(--border)'">
+                            Schliessen
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeDuplicateModal(); });
+        }
+
+        function escAttr(s) { return (s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+        function closeDuplicateModal() {
+            const m = document.getElementById('duplicateModal');
+            if (m) m.remove();
+        }
+
+        function duplicateAction(action, docId, title) {
+            closeDuplicateModal();
+            // Switch to Fragen tab and start a chat about this paper
+            const nav = document.querySelector('[onclick*="showSection(\'questions\'"]') || document.querySelector('.nav-item');
+            showSection('questions');
+            // Pre-fill chat with the right question
+            const prompts = {
+                explain: `Fasse das Paper "${title}" zusammen: Was sind die Kernaussagen, Methodik und wichtigsten Erkenntnisse?`,
+                relevance: `Erkläre mir, wo das Paper "${title}" im BCM-Kontext und für unsere Beratungsprojekte relevant ist. Welche Ψ-Dimensionen und Interventionstypen werden berührt?`,
+                connections: `Welche anderen Papers in unserer Wissensdatenbank sind thematisch verwandt mit "${title}"? Zeige mir die Verbindungen und wie sie sich ergänzen.`
+            };
+            const input = document.getElementById('questionInput') || document.getElementById('chatInput');
+            if (input) {
+                input.value = prompts[action] || '';
+                input.focus();
+                // Auto-resize if textarea
+                if (input.tagName === 'TEXTAREA') {
+                    input.style.height = 'auto';
+                    input.style.height = input.scrollHeight + 'px';
+                }
+            }
         }
 
         let _allDocs = [];
