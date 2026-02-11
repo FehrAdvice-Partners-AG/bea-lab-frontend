@@ -8390,6 +8390,10 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             // Immediately prevent double-send
             _chatSending = true;
             btn.disabled = true;
+            // Safety: auto-reset after 45s to prevent permanent stuck
+            const _safetyTimer = setTimeout(() => {
+                if (_chatSending) { _chatSending = false; btn.disabled = false; console.warn('BEATRIX: safety reset _chatSending after timeout'); }
+            }, 45000);
 
             // ── Auto-detect intent OR use command mode ──
             // BUT: if attachments present, always use normal stream (supports Vision)
@@ -8995,10 +8999,14 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                             const intent = evt.intent || 'project';
                             bxCmdIntent = intent;
                             updateBxIndicator(intent);
-                            // Create streaming message container
+                            // Create streaming message container (unique ID per message)
                             const container = document.getElementById('chatMessages');
                             const bi = BX_INTENTS[intent] || {icon:'💡', color:'42,127,142'};
-                            container.insertAdjacentHTML('beforeend', `<div class="chat-msg assistant" id="bxStreamMsg">
+                            // Remove old bxStreamMsg IDs to avoid collision
+                            document.querySelectorAll('#bxStreamMsg').forEach(el => el.removeAttribute('id'));
+                            document.querySelectorAll('#bxStreamText').forEach(el => el.removeAttribute('id'));
+                            const _msgUid = 'bx_' + Date.now();
+                            container.insertAdjacentHTML('beforeend', `<div class="chat-msg assistant" id="bxStreamMsg" data-uid="${_msgUid}">
                                 <div class="chat-msg-avatar" style="background:linear-gradient(135deg,rgba(${bi.color},0.8),rgba(${bi.color},0.4));font-size:12px">${bi.icon}</div>
                                 <div class="chat-msg-body"><div id="bxStreamText" style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.85)"><span class="typing-dots" style="color:rgba(255,255,255,0.3)">●●●</span></div></div>
                             </div>`);
