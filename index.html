@@ -698,6 +698,10 @@
             <div class="chat-header">
                 <h2>Frag <span>BEATRIX</span></h2>
                 <p>Deine Fragen zu Behavioral Economics, BCM und der Knowledge Base</p>
+                <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:6px">
+                    <span id="chatSessionBadge" style="font-size:10px;color:var(--text-muted);font-family:monospace;background:rgba(255,255,255,0.04);padding:2px 8px;border-radius:4px;cursor:pointer" title="Session-ID kopieren" onclick="navigator.clipboard.writeText(chatSessionId);this.textContent='✓ kopiert';setTimeout(()=>this.textContent='Session: '+chatSessionId,1500)"></span>
+                    <button onclick="startNewChatSession()" style="font-size:11px;padding:3px 10px;background:rgba(42,127,142,0.1);border:1px solid rgba(42,127,142,0.25);border-radius:6px;color:var(--accent-light);cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(42,127,142,0.2)'" onmouseleave="this.style.background='rgba(42,127,142,0.1)'">+ Neuer Chat</button>
+                </div>
             </div>
             <div class="chat-messages" id="chatMessages" onclick="chatAreaClick(event)">
                 <div class="chat-welcome" id="chatWelcome">
@@ -6869,7 +6873,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         const streamResp = await fetch(`${API}/chat/project/${prjCurrentSlug}/stream`, {
                             method: 'POST',
                             headers: {...H(), 'Content-Type': 'application/json'},
-                            body: JSON.stringify({ question: msgText, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type})) })
+                            body: JSON.stringify({ question: msgText, session_id: chatSessionId, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type})) })
                         });
 
                         if (!streamResp.ok) throw new Error(`Stream error: ${streamResp.status}`);
@@ -6933,7 +6937,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                             const kr = await fetch(`${API}/chat/project/${prjCurrentSlug}`, {
                                 method: 'POST',
                                 headers: {...H(), 'Content-Type': 'application/json'},
-                                body: JSON.stringify({ question: msgText, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type})) })
+                                body: JSON.stringify({ question: msgText, session_id: chatSessionId, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type})) })
                             });
                             const kd = await kr.json();
                             let fallbackHtml = mbRenderMd(kd.answer || '');
@@ -8260,6 +8264,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
         // ── Main Chat File Upload ──
         let mainChatAttachments = [];
+        let chatSessionId = 'S-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6);
 
         async function mainChatFileSelected(input) {
             const files = Array.from(input.files);
@@ -8414,6 +8419,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         headers: {...H(), 'Content-Type': 'application/json'},
                         body: JSON.stringify({
                             question: msgText,
+                            session_id: chatSessionId,
                             attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))
                         })
                     });
@@ -8456,7 +8462,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 // Normal chat flow (no attachments)
                 showTyping('BEATRIX sucht in der Wissensbasis...');
                 try {
-                    const r = await fetch(`${API}/chat`, {method:'POST', headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify({question})});
+                    const r = await fetch(`${API}/chat`, {method:'POST', headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify({question, session_id: chatSessionId})});
                     if (r.status === 401) { doLogout(); return; }
                     const d = await r.json();
                     if (!r.ok) { removeTyping(); appendMessage('assistant', d.detail || 'Entschuldigung, es gab einen Fehler.'); return; }
@@ -8486,6 +8492,28 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             btn.disabled = false;
             input.focus();
         }
+
+        function updateSessionBadge() {
+            const badge = document.getElementById('chatSessionBadge');
+            if (badge) badge.textContent = 'Session: ' + chatSessionId;
+        }
+        function startNewChatSession() {
+            chatSessionId = 'S-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6);
+            updateSessionBadge();
+            // Clear chat messages
+            const container = document.getElementById('chatMessages');
+            if (container) container.innerHTML = '';
+            const welcome = document.getElementById('chatWelcome');
+            // Re-show welcome if it exists in DOM, otherwise recreate minimally
+            if (welcome) welcome.style.display = '';
+            // Reset command mode state
+            bxCmdDraft = {};
+            bxCmdHistory = [];
+            bxCmdIntent = '';
+            _chatSending = false;
+        }
+        // Init session badge on load
+        setTimeout(updateSessionBadge, 100);
 
         function askSuggestion(el) {
             document.getElementById('chatInput').value = el.textContent;
@@ -8727,7 +8755,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     headers:{...H(),'Content-Type':'application/json'},
                     body: JSON.stringify({
                         message, history: bxCmdHistory, current_draft: bxCmdDraft,
-                        intent: bxCmdIntent,
+                        intent: bxCmdIntent, session_id: chatSessionId,
                         attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))
                     })
                 });
@@ -8781,7 +8809,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                                 try {
                                     const sr = await fetch(`${API}/chat/stream`, {
                                         method:'POST', headers:{...H(),'Content-Type':'application/json'},
-                                        body: JSON.stringify({question: message, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))})
+                                        body: JSON.stringify({question: message, session_id: chatSessionId, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))})
                                     });
                                     const sReader = sr.body.getReader();
                                     const sDec = new TextDecoder();
