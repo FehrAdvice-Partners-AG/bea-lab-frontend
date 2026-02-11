@@ -293,7 +293,7 @@
         .linkedin-btn.connected { background:var(--navy-mid); border:1px solid var(--border); color:var(--text-secondary); }
         .linkedin-section { margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
         /* ── Chat ──────────────────────── */
-        .chat-container { max-width:900px; margin:0 auto; display:flex; flex-direction:column; height:calc(100vh - 72px); padding:0 20px; }
+        .chat-container { max-width:900px; margin:0 auto; display:flex; flex-direction:column; height:calc(100vh - 72px); height:calc(100dvh - 72px); padding:0 20px; }
         .chat-header { padding:24px 0 16px; text-align:center; flex-shrink:0; }
         .chat-header h2 { font-size:22px; font-weight:800; color:var(--white); margin-bottom:4px; }
         .chat-header h2 span { background:linear-gradient(135deg,var(--accent),var(--accent-light)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
@@ -314,13 +314,24 @@
         .chat-msg-body ul, .chat-msg-body ol { margin:8px 0; padding-left:20px; } .chat-msg-body li { margin:4px 0; }
         .chat-sources { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
         .chat-source-tag { font-size:11px; padding:3px 10px; background:var(--navy-mid); border:1px solid var(--border); border-radius:12px; color:var(--text-secondary); }
-        .chat-input-area { flex-shrink:0; padding:16px 0 24px; }
-        .chat-input-wrap { display:flex; gap:10px; background:var(--navy-card); border:1px solid var(--border); border-radius:var(--radius); padding:8px 8px 8px 18px; transition:var(--transition); }
+        .chat-input-area { flex-shrink:0; padding:8px 0 12px; }
+        .chat-input-wrap { display:flex; gap:10px; background:var(--navy-card); border:1px solid var(--border); border-radius:var(--radius); padding:8px 8px 8px 14px; transition:var(--transition); }
         .chat-input-wrap:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
-        .chat-input { flex:1; background:none; border:none; color:var(--text); font-family:inherit; font-size:15px; outline:none; resize:none; max-height:200px; line-height:1.5; min-height:44px; }
+        .chat-input { flex:1; background:none; border:none; color:var(--text); font-family:inherit; font-size:16px; outline:none; resize:none; max-height:200px; line-height:1.5; min-height:44px; }
         .chat-input::placeholder { color:var(--text-muted); }
-        @media (min-width:600px) and (max-width:1200px) { .chat-input { min-height:56px; font-size:16px; } }
-        @media (max-width:599px) { .chat-input { min-height:44px; font-size:16px; } }
+        @media (max-width:1024px) {
+            .chat-container { padding:0 12px; }
+            .chat-header { padding:12px 0 8px; }
+            .chat-header h2 { font-size:18px; }
+            .chat-header p { display:none; }
+            .chat-input-area { padding:6px 0 8px; }
+            .chat-input-area .bx-cmd-indicator { font-size:10px; padding:4px 10px; margin-bottom:4px; }
+            .footer { display:none; }
+        }
+        .keyboard-open .chat-header { display:none; }
+        .keyboard-open .footer { display:none !important; }
+        .keyboard-open .chat-input-area { padding:4px 0 4px; }
+        .keyboard-open #prjChatIndicator { display:none; }
         .chat-send-btn { width:42px; height:42px; border-radius:12px; background:var(--accent); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:var(--transition); flex-shrink:0; }
         .chat-send-btn:hover { background:var(--accent-light); transform:scale(1.05); }
         .chat-send-btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
@@ -8059,6 +8070,47 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const input = document.getElementById('chatInput');
             if (input) input.focus();
         }
+
+        // ── iOS/iPad keyboard detection ──
+        (function() {
+            const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            if (!isTouch) return;
+
+            let keyboardOpen = false;
+            const toggle = (open) => {
+                if (open === keyboardOpen) return;
+                keyboardOpen = open;
+                document.body.classList.toggle('keyboard-open', open);
+                // Scroll chat to bottom when keyboard opens
+                if (open) {
+                    setTimeout(() => {
+                        const msgs = document.getElementById('chatMessages');
+                        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+                    }, 100);
+                }
+            };
+
+            // Method 1: visualViewport API (best for iOS 13+)
+            if (window.visualViewport) {
+                const initialHeight = window.visualViewport.height;
+                window.visualViewport.addEventListener('resize', () => {
+                    const diff = initialHeight - window.visualViewport.height;
+                    toggle(diff > 150); // keyboard typically > 200px
+                });
+            }
+
+            // Method 2: focus/blur fallback
+            document.addEventListener('focusin', (e) => {
+                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+                    setTimeout(() => toggle(true), 300);
+                }
+            });
+            document.addEventListener('focusout', (e) => {
+                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+                    setTimeout(() => toggle(false), 100);
+                }
+            });
+        })();
 
         function autoResize(el) {
             el.style.height = 'auto';
