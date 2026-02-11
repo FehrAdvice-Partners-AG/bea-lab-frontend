@@ -8326,11 +8326,17 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             if (!mainChatAttachments.length) document.getElementById('mainChatAttachments').style.display = 'none';
         }
 
+        let _chatSending = false;
         async function sendChat() {
+            if (_chatSending) return;
             const input = document.getElementById('chatInput');
             const btn = document.getElementById('chatSendBtn');
             const question = input.value.trim();
             if (!question && !mainChatAttachments.length) return;
+
+            // Immediately prevent double-send
+            _chatSending = true;
+            btn.disabled = true;
 
             // ── Auto-detect intent OR use command mode ──
             const intentKeywords = /\b(neues projekt|projekt eröffnen|projekt anlegen|eröffne.*projekt|erstell.*projekt|leg.*projekt an|mandat.*für|probono.*für|workshop.*für|beratung.*für|neuer lead|lead.*anlegen|lead.*erfassen|opportunity|akquise.*für|bcm.*modell|modell.*bauen|psi.*dimension|kontextvektor|behavioral.*model|intervention.*design|ausgangslage|kontext.*erfassen|situation.*bei|marktumfeld|herausforderung.*bei)\b/i;
@@ -8474,6 +8480,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     appendMessage('assistant', 'Verbindungsfehler. Bitte versuche es erneut.');
                 }
             }
+            _chatSending = false;
             btn.disabled = false;
             input.focus();
         }
@@ -8688,7 +8695,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const attContainer = document.getElementById('mainChatAttachments');
             if (attContainer) { attContainer.innerHTML = ''; attContainer.style.display = 'none'; }
 
-            if (!message && !currentAttachments.length) return;
+            if (!message && !currentAttachments.length) { _chatSending = false; btn.disabled = false; return; }
             input.value = ''; autoResize(input);
             btn.disabled = true;
 
@@ -8727,7 +8734,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     const err = await r.json().catch(()=>({}));
                     removeTyping();
                     appendMessage('assistant', err.detail || err.error || 'Fehler.');
-                    btn.disabled = false; input.focus(); return;
+                    _chatSending = false; btn.disabled = false; input.focus(); return;
                 }
 
                 const reader = r.body.getReader();
@@ -8758,6 +8765,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                                 bxCmdMode = false;
                                 toggleBxCmd();
                                 document.getElementById('chatInput').value = message;
+                                _chatSending = false;
                                 sendChat();
                                 btn.disabled = false; return;
                             }
@@ -8844,6 +8852,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 removeTyping();
                 appendMessage('assistant', 'Verbindungsfehler: ' + e.message);
             }
+            _chatSending = false;
             btn.disabled = false;
             input.focus();
         }
