@@ -8681,11 +8681,32 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const input = document.getElementById('chatInput');
             const btn = document.getElementById('chatSendBtn');
             if (!message) message = input.value.trim();
-            if (!message) return;
+
+            // Collect attachments before clearing
+            const currentAttachments = [...mainChatAttachments];
+            mainChatAttachments = [];
+            const attContainer = document.getElementById('mainChatAttachments');
+            if (attContainer) { attContainer.innerHTML = ''; attContainer.style.display = 'none'; }
+
+            if (!message && !currentAttachments.length) return;
             input.value = ''; autoResize(input);
             btn.disabled = true;
 
-            appendMessage('user', message);
+            // Show user message with attachments
+            let attachHtml = '';
+            if (currentAttachments.length) {
+                attachHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
+                for (const att of currentAttachments) {
+                    if (att.type === 'image') {
+                        attachHtml += `<div style="border-radius:8px;overflow:hidden;border:1px solid var(--border)"><img src="data:${att.media_type};base64,${att.image_base64}" style="max-width:200px;max-height:150px;display:block"></div>`;
+                    } else {
+                        attachHtml += `<div style="padding:6px 10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text-secondary)">📄 ${att.name}</div>`;
+                    }
+                }
+                attachHtml += '</div>';
+            }
+            if (!message) message = `Analysiere: ${currentAttachments.map(a=>a.name).join(', ')}`;
+            appendMessage('user', attachHtml + formatMessage(message));
             bxCmdHistory.push({role:'user', content:message});
 
             const intentLabels = {project:'Projekt analysieren',lead:'Lead analysieren',model:'Modell bauen',context:'Kontext erfassen'};
@@ -8697,7 +8718,8 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     headers:{...H(),'Content-Type':'application/json'},
                     body: JSON.stringify({
                         message, history: bxCmdHistory, current_draft: bxCmdDraft,
-                        intent: bxCmdIntent
+                        intent: bxCmdIntent,
+                        attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))
                     })
                 });
 
