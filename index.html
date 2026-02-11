@@ -3535,9 +3535,11 @@
         }
 
         function showDuplicateModal(dup) {
-            // Remove existing modal
+            // Remove existing modals
             const old = document.getElementById('duplicateModal');
             if (old) old.remove();
+            const old2 = document.getElementById('uploadProgressModal');
+            if (old2) old2.remove();
 
             const catIcons = {paper:'📚',report:'📊',presentation:'📑',note:'📝',document:'📄'};
             const icon = catIcons[dup.category] || '📄';
@@ -3548,66 +3550,118 @@
             const modal = document.createElement('div');
             modal.id = 'duplicateModal';
             modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);animation:fadeIn 0.2s ease';
+
+            // Phase 1: Progress animation (same style as upload)
             modal.innerHTML = `
-                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:520px;width:92vw;padding:0;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:slideUp 0.25s ease">
-                    <!-- Header with green success accent -->
-                    <div style="background:linear-gradient(135deg,rgba(52,211,153,0.12),rgba(99,102,241,0.08));padding:28px 28px 20px;border-bottom:1px solid var(--border)">
-                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-                            <div style="width:44px;height:44px;border-radius:12px;background:rgba(52,211,153,0.15);display:flex;align-items:center;justify-content:center;font-size:22px">✅</div>
-                            <div>
-                                <div style="font-size:13px;color:rgba(52,211,153,0.9);font-weight:600;letter-spacing:0.3px">Bereits in der Wissensdatenbank</div>
-                                <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Duplikat erkannt</div>
-                            </div>
-                        </div>
-                        <div style="font-size:15px;font-weight:600;color:var(--text-primary);line-height:1.4">${icon} ${dup.title}</div>
+                <div id="dupCard" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:480px;width:92vw;padding:32px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:slideUp 0.25s ease;text-align:center">
+                    <div id="dupIcon" style="font-size:36px;margin-bottom:16px;transition:all 0.3s ease">📄</div>
+                    <div id="dupTitle" style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:6px">Dokument wird geprüft...</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;max-width:360px;margin-left:auto;margin-right:auto">
+                        ${(dup.title||'').length > 60 ? (dup.title||'').substring(0,57)+'…' : (dup.title||'')}
                     </div>
-
-                    <!-- Body -->
-                    <div style="padding:20px 28px">
-                        <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0 0 16px">
-                            Dieses Dokument wurde am <strong style="color:var(--text-primary)">${dup.date}</strong> erfolgreich in die BEATRIX-Wissensdatenbank aufgenommen. 
-                            Es muss nicht erneut hochgeladen werden.
-                        </p>
-                        ${tagsHtml ? `<div style="margin-bottom:16px">${tagsHtml}</div>` : ''}
-                        <p style="font-size:12px;color:var(--text-muted);margin:0">
-                            Ich kann dir aber helfen, dieses Paper besser zu verstehen:
-                        </p>
+                    <div style="background:rgba(255,255,255,0.06);border-radius:8px;height:6px;overflow:hidden;margin-bottom:12px">
+                        <div id="dupBar" style="height:100%;border-radius:8px;width:0%;transition:width 0.6s cubic-bezier(0.4,0,0.2,1);background:linear-gradient(90deg,rgba(99,102,241,0.8),rgba(52,211,153,0.8))"></div>
                     </div>
-
-                    <!-- Action Choices -->
-                    <div style="padding:0 28px 24px;display:flex;flex-direction:column;gap:8px">
-                        <button onclick="duplicateAction('explain','${dup.doc_id}','${escAttr(dup.title)}')" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(99,102,241,0.3);background:rgba(99,102,241,0.08);color:rgba(165,180,252,0.95);font-size:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all 0.15s" onmouseenter="this.style.background='rgba(99,102,241,0.15)';this.style.borderColor='rgba(99,102,241,0.5)'" onmouseleave="this.style.background='rgba(99,102,241,0.08)';this.style.borderColor='rgba(99,102,241,0.3)'">
-                            <span style="font-size:16px">🔍</span>
-                            <div>
-                                <div style="font-weight:500">Zusammenfassung & Kernaussagen</div>
-                                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Was sind die wichtigsten Erkenntnisse dieses Papers?</div>
-                            </div>
-                        </button>
-                        <button onclick="duplicateAction('relevance','${dup.doc_id}','${escAttr(dup.title)}')" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(52,211,153,0.3);background:rgba(52,211,153,0.08);color:rgba(110,231,183,0.95);font-size:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all 0.15s" onmouseenter="this.style.background='rgba(52,211,153,0.15)';this.style.borderColor='rgba(52,211,153,0.5)'" onmouseleave="this.style.background='rgba(52,211,153,0.08)';this.style.borderColor='rgba(52,211,153,0.3)'">
-                            <span style="font-size:16px">🧩</span>
-                            <div>
-                                <div style="font-weight:500">Relevanz für unsere Projekte</div>
-                                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Wo spielt dieses Paper im BCM-Kontext eine Rolle?</div>
-                            </div>
-                        </button>
-                        <button onclick="duplicateAction('connections','${dup.doc_id}','${escAttr(dup.title)}')" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.06);color:rgba(253,224,71,0.9);font-size:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all 0.15s" onmouseenter="this.style.background='rgba(251,191,36,0.12)';this.style.borderColor='rgba(251,191,36,0.5)'" onmouseleave="this.style.background='rgba(251,191,36,0.06)';this.style.borderColor='rgba(251,191,36,0.3)'">
-                            <span style="font-size:16px">🔗</span>
-                            <div>
-                                <div style="font-weight:500">Verbindungen zu anderen Papers</div>
-                                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Welche verwandten Studien haben wir in der Wissensdatenbank?</div>
-                            </div>
-                        </button>
-                    </div>
-
-                    <!-- Footer -->
-                    <div style="padding:0 28px 20px;text-align:center">
-                        <button onclick="closeDuplicateModal()" style="padding:8px 24px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.borderColor='var(--text-secondary)'" onmouseleave="this.style.borderColor='var(--border)'">
-                            Schliessen
-                        </button>
-                    </div>
+                    <div id="dupStep" style="font-size:12px;color:var(--text-secondary);min-height:18px;transition:opacity 0.2s">Dokument wird analysiert...</div>
                 </div>
             `;
             document.body.appendChild(modal);
+
+            // Phase 1 steps
+            const steps = [
+                { icon: '📄', text: 'Dokument wird analysiert...', pct: 20, delay: 0 },
+                { icon: '🔬', text: 'Wissenschaftliche Signale erkannt...', pct: 45, delay: 1500 },
+                { icon: '🧠', text: 'Abgleich mit der BEA-Wissensdatenbank...', pct: 70, delay: 3000 },
+                { icon: '📚', text: 'Paper wurde identifiziert!', pct: 100, delay: 4500 }
+            ];
+
+            steps.forEach(step => {
+                setTimeout(() => {
+                    const bar = document.getElementById('dupBar');
+                    const stepEl = document.getElementById('dupStep');
+                    const iconEl = document.getElementById('dupIcon');
+                    if (!bar) return;
+                    bar.style.width = step.pct + '%';
+                    if (iconEl) iconEl.textContent = step.icon;
+                    if (stepEl) { stepEl.style.opacity = '0'; setTimeout(() => { if(stepEl) { stepEl.textContent = step.text; stepEl.style.opacity = '1'; }}, 200); }
+                }, step.delay + 300);
+            });
+
+            // Phase 2: Transition to duplicate info (after progress completes)
+            setTimeout(() => {
+                const card = document.getElementById('dupCard');
+                if (!card) return;
+                card.style.transition = 'all 0.4s ease';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.96)';
+
+                setTimeout(() => {
+                    if (!card) return;
+                    card.style.textAlign = 'left';
+                    card.style.padding = '0';
+                    card.style.maxWidth = '520px';
+                    card.innerHTML = `
+                        <!-- Header -->
+                        <div style="background:linear-gradient(135deg,rgba(52,211,153,0.12),rgba(99,102,241,0.08));padding:28px 28px 20px;border-bottom:1px solid var(--border)">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                                <div style="width:44px;height:44px;border-radius:12px;background:rgba(52,211,153,0.15);display:flex;align-items:center;justify-content:center;font-size:22px">✅</div>
+                                <div>
+                                    <div style="font-size:13px;color:rgba(52,211,153,0.9);font-weight:600;letter-spacing:0.3px">Bereits in der Wissensdatenbank</div>
+                                    <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Aufgenommen am ${dup.date}</div>
+                                </div>
+                            </div>
+                            <div style="font-size:15px;font-weight:600;color:var(--text-primary);line-height:1.4">${icon} ${dup.title}</div>
+                        </div>
+
+                        <!-- Body -->
+                        <div style="padding:20px 28px">
+                            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0 0 16px">
+                                Diese wissenschaftliche Arbeit wurde am <strong style="color:var(--text-primary)">${dup.date}</strong> erfolgreich in die BEATRIX-Wissensdatenbank aufgenommen.
+                                Ein erneutes Hochladen ist nicht nötig.
+                            </p>
+                            ${tagsHtml ? `<div style="margin-bottom:16px">${tagsHtml}</div>` : ''}
+                            <p style="font-size:12px;color:var(--text-muted);margin:0">
+                                Ich kann dir aber helfen, dieses Paper besser zu verstehen:
+                            </p>
+                        </div>
+
+                        <!-- Action Choices -->
+                        <div style="padding:0 28px 24px;display:flex;flex-direction:column;gap:8px">
+                            <button onclick="duplicateAction('explain','${dup.doc_id}','${escAttr(dup.title)}')" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(99,102,241,0.3);background:rgba(99,102,241,0.08);color:rgba(165,180,252,0.95);font-size:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all 0.15s" onmouseenter="this.style.background='rgba(99,102,241,0.15)';this.style.borderColor='rgba(99,102,241,0.5)'" onmouseleave="this.style.background='rgba(99,102,241,0.08)';this.style.borderColor='rgba(99,102,241,0.3)'">
+                                <span style="font-size:16px">🔍</span>
+                                <div>
+                                    <div style="font-weight:500">Zusammenfassung & Kernaussagen</div>
+                                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Was sind die wichtigsten Erkenntnisse dieses Papers?</div>
+                                </div>
+                            </button>
+                            <button onclick="duplicateAction('relevance','${dup.doc_id}','${escAttr(dup.title)}')" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(52,211,153,0.3);background:rgba(52,211,153,0.08);color:rgba(110,231,183,0.95);font-size:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all 0.15s" onmouseenter="this.style.background='rgba(52,211,153,0.15)';this.style.borderColor='rgba(52,211,153,0.5)'" onmouseleave="this.style.background='rgba(52,211,153,0.08)';this.style.borderColor='rgba(52,211,153,0.3)'">
+                                <span style="font-size:16px">🧩</span>
+                                <div>
+                                    <div style="font-weight:500">Relevanz für unsere Projekte</div>
+                                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Wo spielt dieses Paper im BCM-Kontext eine Rolle?</div>
+                                </div>
+                            </button>
+                            <button onclick="duplicateAction('connections','${dup.doc_id}','${escAttr(dup.title)}')" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.06);color:rgba(253,224,71,0.9);font-size:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all 0.15s" onmouseenter="this.style.background='rgba(251,191,36,0.12)';this.style.borderColor='rgba(251,191,36,0.5)'" onmouseleave="this.style.background='rgba(251,191,36,0.06)';this.style.borderColor='rgba(251,191,36,0.3)'">
+                                <span style="font-size:16px">🔗</span>
+                                <div>
+                                    <div style="font-weight:500">Verbindungen zu anderen Papers</div>
+                                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Welche verwandten Studien haben wir in der Wissensdatenbank?</div>
+                                </div>
+                            </button>
+                        </div>
+
+                        <!-- Footer -->
+                        <div style="padding:0 28px 20px;text-align:center">
+                            <button onclick="closeDuplicateModal()" style="padding:8px 24px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.borderColor='var(--text-secondary)'" onmouseleave="this.style.borderColor='var(--border)'">
+                                Schliessen
+                            </button>
+                        </div>
+                    `;
+                    card.style.opacity = '1';
+                    card.style.transform = 'scale(1)';
+                }, 350);
+            }, 6000); // Phase 2 starts after ~6s
+
             modal.addEventListener('click', (e) => { if (e.target === modal) closeDuplicateModal(); });
         }
 
