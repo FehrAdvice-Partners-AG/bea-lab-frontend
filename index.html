@@ -195,6 +195,19 @@
         .admin-card { padding:24px; background:var(--navy-card); border:1px solid var(--border); border-radius:var(--radius); }
         .admin-card-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); margin-bottom:8px; }
         .admin-card-value { font-size:28px; font-weight:800; color:var(--white); }
+        .task-filter { padding:6px 14px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; color:rgba(255,255,255,0.4); font-size:12px; cursor:pointer; transition:all 0.15s; }
+        .task-filter:hover { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.6); }
+        .task-filter.active { background:rgba(42,127,142,0.12); border-color:rgba(42,127,142,0.3); color:var(--accent); font-weight:600; }
+        .task-row { display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--navy-card); border:1px solid var(--border); border-radius:10px; transition:all 0.15s; }
+        .task-row:hover { border-color:rgba(42,127,142,0.3); background:rgba(42,127,142,0.04); }
+        .task-row.done { opacity:0.4; }
+        .task-check { width:20px; height:20px; border:2px solid rgba(255,255,255,0.15); border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.15s; }
+        .task-check:hover { border-color:var(--accent); }
+        .task-check.checked { background:var(--accent); border-color:var(--accent); }
+        .task-pri-urgent { border-left:3px solid #ef4444; }
+        .task-pri-high { border-left:3px solid #fbbf24; }
+        .task-pri-normal { border-left:3px solid rgba(255,255,255,0.1); }
+        .task-pri-low { border-left:3px solid rgba(255,255,255,0.04); }
         .admin-card-sub { font-size:12px; color:var(--text-secondary); margin-top:4px; }
         .admin-section-title { font-size:16px; font-weight:700; color:var(--white); margin-bottom:16px; display:flex; align-items:center; gap:10px; }
         .admin-section-title .badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; background:var(--accent-glow); color:var(--accent-light); border:1px solid rgba(91,138,245,0.2); }
@@ -610,6 +623,10 @@
                     <a class="nav-dropdown-item" id="navDropProjects" data-section="projects" onclick="navDropClick('projects',this)" style="display:none">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                         Alle Projekte
+                    </a>
+                    <a class="nav-dropdown-item" id="navDropTasks" data-section="tasks" onclick="navDropClick('tasks',this)" style="display:none">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        Tasks
                     </a>
                 </div>
             </div>
@@ -2537,6 +2554,53 @@
         </div>
     </section>
 
+    <!-- ═══════ TASKS SECTION ═══════ -->
+    <section class="section" id="tasks-section">
+        <div class="container">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+                <div style="flex:1">
+                    <h2 style="margin:0;font-size:22px;color:white">✅ Tasks</h2>
+                    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px" id="taskCount"></div>
+                </div>
+                <button onclick="showNewTaskModal()" style="padding:8px 18px;background:linear-gradient(135deg,var(--accent),#2A7F8E);border:none;border-radius:8px;color:white;font-size:13px;font-weight:600;cursor:pointer">+ Neue Aufgabe</button>
+            </div>
+            <!-- KPI Cards -->
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px" id="taskKpis">
+                <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+                    <div style="font-size:22px;font-weight:700;color:#ef4444" id="taskOverdue">0</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.4)">Überfällig</div>
+                </div>
+                <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+                    <div style="font-size:22px;font-weight:700;color:#fbbf24" id="taskDueToday">0</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.4)">Heute fällig</div>
+                </div>
+                <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+                    <div style="font-size:22px;font-weight:700;color:rgba(139,170,255,0.8)" id="taskDueWeek">0</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.4)">Diese Woche</div>
+                </div>
+                <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+                    <div style="font-size:22px;font-weight:700;color:#34d399" id="taskActive">0</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.4)">Offen</div>
+                </div>
+                <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+                    <div style="font-size:22px;font-weight:700;color:rgba(255,255,255,0.3)" id="taskDone">0</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.4)">Erledigt</div>
+                </div>
+            </div>
+            <!-- Filters -->
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap" id="taskFilters">
+                <button class="task-filter active" data-filter="active" onclick="filterTasks('active',this)">Alle offenen</button>
+                <button class="task-filter" data-filter="consultant" onclick="filterTasks('consultant',this)">👤 Berater</button>
+                <button class="task-filter" data-filter="bdm" onclick="filterTasks('bdm',this)">🏢 BDM</button>
+                <button class="task-filter" data-filter="beatrix" onclick="filterTasks('beatrix',this)">🤖 BEATRIX</button>
+                <button class="task-filter" data-filter="external" onclick="filterTasks('external',this)">🔄 Extern</button>
+                <button class="task-filter" data-filter="done" onclick="filterTasks('done',this)">✓ Erledigt</button>
+            </div>
+            <!-- Task List -->
+            <div id="taskList" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+    </section>
+
     <section class="section" id="admin-section">
         <div class="container">
             <div class="section-header"><h2>⚙ Administration</h2><p>Benutzer verwalten und Systemeinstellungen konfigurieren.</p></div>
@@ -3039,6 +3103,7 @@
             if(name==='leads') crmLoad();
             if(name==='companies') crmLoadCompanies();
             if(name==='projects') prjLoad();
+            if(name==='tasks') loadTasks();
             if(name==='myprojects') myPrjLoad();
             if(name==='profile') loadProfile();
             if(name==='chat') { loadChatHistory(); document.getElementById('chatInput').focus(); }
@@ -3547,6 +3612,8 @@
             if (compEl) compEl.style.display = showCrm ? 'flex' : 'none';
             const projEl = document.getElementById('navDropProjects');
             if (projEl) projEl.style.display = showCrm ? 'flex' : 'none';
+            const taskEl = document.getElementById('navDropTasks');
+            if (taskEl) taskEl.style.display = isFehrAdvice ? 'flex' : 'none';
             const myProjEl = document.getElementById('navDropMyProjects');
             if (myProjEl) myProjEl.style.display = 'none'; // hidden, now top-level
 
@@ -5487,6 +5554,199 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             document.getElementById('myPrjList').innerHTML = rows;
         }
 
+        // ── TASK MANAGEMENT ──────────────────────────────
+        let _taskFilter = 'active';
+        let _tasksData = [];
+
+        async function loadTasks() {
+            const list = document.getElementById('taskList');
+            list.innerHTML = '<div style="padding:40px;text-align:center;color:rgba(255,255,255,0.3)">Lade Tasks…</div>';
+            try {
+                // Load stats
+                const sr = await fetch(`${API}/tasks/stats`, {headers: H()});
+                if (sr.ok) {
+                    const stats = await sr.json();
+                    document.getElementById('taskOverdue').textContent = stats.overdue || 0;
+                    document.getElementById('taskDueToday').textContent = stats.due_today || 0;
+                    document.getElementById('taskDueWeek').textContent = stats.due_this_week || 0;
+                    document.getElementById('taskActive').textContent = stats.active_total || 0;
+                    document.getElementById('taskDone').textContent = (stats.by_status||{}).done || 0;
+                    document.getElementById('taskCount').textContent = `${stats.active_total||0} offene Tasks, ${stats.overdue||0} überfällig`;
+                    // Color overdue KPI red if > 0
+                    if (stats.overdue > 0) document.getElementById('taskOverdue').parentElement.style.borderColor = 'rgba(239,68,68,0.3)';
+                }
+                // Load tasks based on filter
+                let url = `${API}/tasks?limit=100`;
+                if (_taskFilter === 'active') url += '&status=active';
+                else if (_taskFilter === 'done') url += '&status=done';
+                else if (['consultant','bdm','beatrix','external'].includes(_taskFilter)) url += `&status=active&assignee_type=${_taskFilter}`;
+                const r = await fetch(url, {headers: H()});
+                if (!r.ok) throw new Error('Fehler beim Laden');
+                const data = await r.json();
+                _tasksData = data.tasks || [];
+                renderTaskList(_tasksData);
+            } catch(e) {
+                list.innerHTML = `<div style="padding:40px;text-align:center;color:#ef4444">❌ ${e.message}</div>`;
+            }
+        }
+
+        function filterTasks(filter, el) {
+            _taskFilter = filter;
+            document.querySelectorAll('.task-filter').forEach(b => b.classList.remove('active'));
+            if (el) el.classList.add('active');
+            loadTasks();
+        }
+
+        function renderTaskList(tasks) {
+            const list = document.getElementById('taskList');
+            if (!tasks.length) {
+                list.innerHTML = '<div style="padding:40px;text-align:center;color:rgba(255,255,255,0.3)">Keine Tasks gefunden</div>';
+                return;
+            }
+            const typeIcons = {consultant:'👤', bdm:'🏢', beatrix:'🤖', external:'🔄'};
+            const typeLabels = {consultant:'Berater', bdm:'BDM', beatrix:'BEATRIX', external:'Extern'};
+            const priColors = {urgent:'#ef4444', high:'#fbbf24', normal:'rgba(255,255,255,0.15)', low:'rgba(255,255,255,0.06)'};
+            const today = new Date().toISOString().slice(0,10);
+
+            list.innerHTML = tasks.map(t => {
+                const isDone = t.status === 'done';
+                const isOverdue = t.due_date && t.due_date < today && !isDone;
+                const isToday = t.due_date === today;
+                const dueColor = isOverdue ? '#ef4444' : isToday ? '#fbbf24' : 'rgba(255,255,255,0.3)';
+                const dueLabel = isOverdue ? '⚠ Überfällig' : isToday ? 'Heute' : (t.due_date || '');
+
+                return `<div class="task-row ${isDone?'done':''} task-pri-${t.priority||'normal'}">
+                    <div class="task-check ${isDone?'checked':''}" onclick="toggleTask('${t.id}',${isDone})" title="${isDone?'Wieder öffnen':'Erledigen'}">
+                        ${isDone ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                    </div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:13px;color:${isDone?'rgba(255,255,255,0.3)':'white'};font-weight:${isDone?'400':'500'};${isDone?'text-decoration:line-through':''}">
+                            ${t.title}
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;align-items:center">
+                            <span style="font-size:10px;padding:1px 6px;background:rgba(42,127,142,0.1);border:1px solid rgba(42,127,142,0.2);border-radius:6px;color:rgba(42,127,142,0.7)">${typeIcons[t.assignee_type]||'?'} ${t.assignee||typeLabels[t.assignee_type]||''}</span>
+                            ${t.customer_code ? `<span style="font-size:10px;color:rgba(255,255,255,0.25)">${t.customer_code.toUpperCase()}</span>` : ''}
+                            ${t.project_slug ? `<span style="font-size:10px;color:rgba(139,170,255,0.4)">${t.project_slug}</span>` : ''}
+                            ${t.category ? `<span style="font-size:10px;color:rgba(255,255,255,0.2)">${t.category}</span>` : ''}
+                            ${t.source === 'auto' ? `<span style="font-size:9px;color:rgba(52,211,153,0.4)">⚡auto</span>` : ''}
+                        </div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0">
+                        ${t.due_date ? `<div style="font-size:11px;color:${dueColor};font-weight:${isOverdue?'600':'400'}">${dueLabel}</div>` : ''}
+                        ${t.priority && t.priority !== 'normal' ? `<div style="font-size:10px;color:${priColors[t.priority]||'white'};margin-top:2px">${t.priority === 'urgent' ? '🔴' : t.priority === 'high' ? '●' : '○'}</div>` : ''}
+                    </div>
+                    <div style="flex-shrink:0;cursor:pointer;padding:4px;color:rgba(255,255,255,0.15)" onclick="deleteTask('${t.id}')" title="Löschen">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function toggleTask(taskId, isDone) {
+            try {
+                const endpoint = isDone ? `${API}/tasks/${taskId}/reopen` : `${API}/tasks/${taskId}/complete`;
+                await fetch(endpoint, {method:'POST', headers:H()});
+                loadTasks();
+            } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+        }
+
+        async function deleteTask(taskId) {
+            if (!confirm('Task wirklich löschen?')) return;
+            try {
+                await fetch(`${API}/tasks/${taskId}`, {method:'DELETE', headers:H()});
+                loadTasks();
+                showToast('Task gelöscht', 'success');
+            } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+        }
+
+        function showNewTaskModal() {
+            const modal = document.createElement('div');
+            modal.id = 'taskModal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+            const fld = 'width:100%;padding:10px 12px;background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none';
+            const lbl = 'font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px';
+            modal.innerHTML = `<div style="background:var(--navy-card);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                    <h3 style="margin:0;color:white;font-size:18px">✅ Neue Aufgabe</h3>
+                    <span style="cursor:pointer;color:rgba(255,255,255,0.3);font-size:20px" onclick="document.getElementById('taskModal').remove()">✕</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:14px">
+                    <div><div style="${lbl}">Titel *</div><input id="ntTitle" style="${fld}" placeholder="Was muss erledigt werden?"></div>
+                    <div><div style="${lbl}">Beschreibung</div><textarea id="ntDesc" style="${fld};min-height:60px;resize:vertical" placeholder="Details..."></textarea></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div><div style="${lbl}">Typ</div><select id="ntType" style="${fld}" onchange="ntTypeChanged()">
+                            <option value="consultant">👤 Berater</option>
+                            <option value="bdm">🏢 BDM-Team</option>
+                            <option value="beatrix">🤖 BEATRIX</option>
+                            <option value="external">🔄 Extern</option>
+                        </select></div>
+                        <div><div style="${lbl}">Zugewiesen an</div><input id="ntAssignee" style="${fld}" placeholder="GF, AF, BDM, ..."></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div><div style="${lbl}">Fällig am</div><input id="ntDue" type="date" style="${fld}"></div>
+                        <div><div style="${lbl}">Priorität</div><select id="ntPri" style="${fld}">
+                            <option value="normal">◐ Normal</option>
+                            <option value="low">○ Niedrig</option>
+                            <option value="high">● Hoch</option>
+                            <option value="urgent">🔴 Dringend</option>
+                        </select></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div><div style="${lbl}">Kunde (Code)</div><input id="ntCustomer" style="${fld}" placeholder="z.B. alpla, lukb"></div>
+                        <div><div style="${lbl}">Projekt (Slug)</div><input id="ntProject" style="${fld}" placeholder="z.B. alp005-workshop"></div>
+                    </div>
+                    <div id="ntCategoryRow"><div style="${lbl}">Kategorie</div><select id="ntCategory" style="${fld}">
+                        <option value="">—</option>
+                        <option value="sales">Sales</option><option value="delivery">Delivery</option>
+                        <option value="vertrag">Vertrag</option><option value="rechnung">Rechnung</option>
+                        <option value="reise">Reise</option><option value="termin">Termin</option>
+                        <option value="dokument">Dokument</option><option value="zugang">Zugang</option>
+                        <option value="offerte">Offerte</option><option value="data">Daten</option>
+                        <option value="allgemein">Allgemein</option>
+                    </select></div>
+                    <div id="ntEscRow" style="display:none"><div style="${lbl}">Eskalation nach X Tagen</div><input id="ntEsc" type="number" style="${fld}" placeholder="z.B. 7"></div>
+                    <button onclick="createTaskFromModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--accent),#2A7F8E);border:none;border-radius:10px;color:white;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">✓ Task erstellen</button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+            document.getElementById('ntTitle').focus();
+        }
+
+        function ntTypeChanged() {
+            const t = document.getElementById('ntType').value;
+            document.getElementById('ntEscRow').style.display = t === 'external' ? '' : 'none';
+            const a = document.getElementById('ntAssignee');
+            if (t === 'bdm') a.value = 'BDM';
+            else if (t === 'beatrix') a.value = 'system';
+            else if (t === 'consultant') a.value = '';
+            else a.value = '';
+        }
+
+        async function createTaskFromModal() {
+            const title = document.getElementById('ntTitle').value.trim();
+            if (!title) { showToast('Titel eingeben', 'error'); return; }
+            try {
+                const payload = {
+                    title,
+                    description: document.getElementById('ntDesc').value.trim(),
+                    assignee_type: document.getElementById('ntType').value,
+                    assignee: document.getElementById('ntAssignee').value.trim(),
+                    due_date: document.getElementById('ntDue').value || null,
+                    priority: document.getElementById('ntPri').value,
+                    customer_code: document.getElementById('ntCustomer').value.trim() || null,
+                    project_slug: document.getElementById('ntProject').value.trim() || null,
+                    category: document.getElementById('ntCategory').value || null,
+                    escalation_after_days: document.getElementById('ntEsc').value ? parseInt(document.getElementById('ntEsc').value) : null,
+                    source: 'manual'
+                };
+                const r = await fetch(`${API}/tasks`, {method:'POST', headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+                if (!r.ok) throw new Error('Fehler');
+                document.getElementById('taskModal').remove();
+                showToast('✓ Task erstellt', 'success');
+                loadTasks();
+            } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+        }
+
         async function prjLoad() {
             document.getElementById('prjListView').style.display = '';
             document.getElementById('prjWizardView').style.display = 'none';
@@ -6549,6 +6809,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                             case 'lead': cardHtml = renderLeadCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'model': cardHtml = renderModelCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'context': cardHtml = renderContextCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
+                            case 'task': cardHtml = renderTaskCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
                         }
                     }
                     const textHtml = (!cardHtml && d.message) ? formatMessage(d.message) : '';
@@ -8020,6 +8281,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         const BX_INTENTS = {
             project: {icon:'📋', label:'Projekt', color:'52,211,153'},
             lead:    {icon:'🎯', label:'Lead', color:'251,191,36'},
+            task:    {icon:'✅', label:'Task', color:'52,211,153'},
             model:   {icon:'🔬', label:'Modell', color:'139,170,255'},
             context: {icon:'🧠', label:'Kontext', color:'232,163,61'}
         };
@@ -8161,6 +8423,30 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             return bxCard('🧠','Kontext', rgb, isComplete, f, missing, message, confidence, isComplete ? `<button onclick="bxConfirmContext()" style="${bxBtnConfirm}">✓ Kontext speichern</button><button onclick="bxRefine()" style="${bxBtnRefine}">✏ Anpassen</button>` : '');
         }
 
+        function renderTaskCard(data, status, missing, confidence, message) {
+            const d = data;
+            const rgb = '52,211,153'; // green
+            const typeLabels = {consultant:'👤 Berater', bdm:'🏢 BDM-Team', beatrix:'🤖 BEATRIX', external:'🔄 Extern'};
+            const priLabels = {low:'○ Niedrig', normal:'◐ Normal', high:'● Hoch', urgent:'🔴 Dringend'};
+            const priColors = {low:'rgba(255,255,255,0.3)', normal:'rgba(255,255,255,0.5)', high:'#fbbf24', urgent:'#ef4444'};
+            const isComplete = status === 'complete' && confidence >= 0.6;
+            const field = (l,v) => v ? `<div style="display:flex;gap:8px;padding:3px 0"><span style="color:rgba(255,255,255,0.3);min-width:100px;font-size:11px">${l}</span><span style="color:white;font-size:12px">${v}</span></div>` : '';
+            let f = '';
+            f += field('Aufgabe', d.title);
+            if (d.description) f += field('Details', d.description);
+            const at = d.assignee_type || 'consultant';
+            f += `<div style="padding:3px 0"><span style="padding:2px 8px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:8px;font-size:10px;color:#34d399;font-weight:600">${typeLabels[at]||at}</span></div>`;
+            f += field('Zugewiesen an', d.assignee || (at==='bdm'?'BDM':at==='beatrix'?'System':''));
+            if (d.customer_code) f += field('Kunde', d.customer_code.toUpperCase());
+            if (d.project_slug) f += field('Projekt', d.project_slug);
+            if (d.lead_id) f += field('Lead', d.lead_id);
+            if (d.due_date) f += field('Fällig', d.due_date);
+            if (d.priority) f += field('Priorität', `<span style="color:${priColors[d.priority]||'white'}">${priLabels[d.priority]||d.priority}</span>`);
+            if (d.category) f += field('Kategorie', d.category);
+            if (d.escalation_after_days) f += field('Eskalation', `nach ${d.escalation_after_days} Tagen`);
+            return bxCard('✅','Task', rgb, isComplete, f, missing, message, confidence, isComplete ? `<button onclick="bxConfirmTask()" style="${bxBtnConfirm}">✓ Task erstellen</button><button onclick="bxRefine()" style="${bxBtnRefine}">✏ Anpassen</button>` : '');
+        }
+
         // Shared card shell
         const bxBtnConfirm = "flex:1;padding:10px;background:linear-gradient(135deg,#34d399,#2A7F8E);border:none;border-radius:8px;color:white;font-size:13px;font-weight:700;cursor:pointer";
         const bxBtnRefine = "padding:10px 16px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:rgba(255,255,255,0.5);font-size:12px;cursor:pointer";
@@ -8294,6 +8580,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                             case 'lead': cardHtml = renderLeadCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'model': cardHtml = renderModelCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'context': cardHtml = renderContextCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
+                            case 'task': cardHtml = renderTaskCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
                         }
                     }
 
@@ -8466,6 +8753,40 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     container.scrollTop = container.scrollHeight;
                     bxCmdDraft = {}; bxCmdHistory = []; bxCmdIntent = '';
                 }
+            } catch(e) { removeTyping(); appendMessage('assistant', '❌ ' + e.message); }
+        }
+
+        async function bxConfirmTask() {
+            const d = bxCmdDraft;
+            if (!d.title) { showToast('Task-Titel fehlt', 'error'); return; }
+            showTyping('Task wird erstellt...');
+            try {
+                const payload = {
+                    title: d.title,
+                    description: d.description || '',
+                    assignee_type: d.assignee_type || 'consultant',
+                    assignee: d.assignee || '',
+                    customer_code: d.customer_code || '',
+                    project_slug: d.project_slug || '',
+                    lead_id: d.lead_id || '',
+                    priority: d.priority || 'normal',
+                    due_date: d.due_date || null,
+                    category: d.category || '',
+                    source: 'chat',
+                    escalation_after_days: d.escalation_after_days || null
+                };
+                const r = await fetch(`${API}/tasks`, {
+                    method:'POST', headers:{...H(),'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const res = await r.json();
+                removeTyping();
+                if (r.ok) {
+                    const typeLabels = {consultant:'Berater', bdm:'BDM-Team', beatrix:'BEATRIX', external:'Extern'};
+                    bxShowSuccess('Task erstellt', res.id || '', `${d.title} → ${typeLabels[d.assignee_type]||d.assignee_type}`, 'task', '');
+                    bxCmdDraft = {}; bxCmdHistory = []; bxCmdIntent = '';
+                    showToast(`✓ ${res.id || 'Task'} erstellt!`, 'success');
+                } else { appendMessage('assistant', '❌ ' + (res.error||res.detail||'Fehler')); }
             } catch(e) { removeTyping(); appendMessage('assistant', '❌ ' + e.message); }
         }
 
