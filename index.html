@@ -662,17 +662,17 @@
                 </div>
             </div>
             <div class="chat-input-area">
-                <div id="prjChatIndicator" style="display:none;padding:6px 14px;margin-bottom:6px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.15);border-radius:8px;font-size:11px;color:rgba(42,127,142,0.7)">
+                <div id="prjChatIndicator" style="padding:6px 14px;margin-bottom:6px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.15);border-radius:8px;font-size:11px;color:rgba(42,127,142,0.7)">
                     💡 <strong>BEATRIX Command Mode</strong> – Projekte, Leads, Modelle, Kontext per Sprache.
                     <span onclick="toggleBxCmd()" style="cursor:pointer;margin-left:8px;color:rgba(255,255,255,0.3)">✕</span>
                 </div>
                 <div id="mainChatAttachments" style="display:none;padding:0 0 8px;display:flex;flex-wrap:wrap;gap:6px"></div>
                 <div class="chat-input-wrap" style="display:flex;align-items:flex-end;gap:6px">
-                    <button id="prjChatToggle" onclick="toggleBxCmd()" style="padding:8px 10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:rgba(255,255,255,0.4);font-size:14px;cursor:pointer;flex-shrink:0;transition:all 0.15s;line-height:1" title="BEATRIX Command Mode">💡</button>
+                    <button id="prjChatToggle" onclick="toggleBxCmd()" style="padding:8px 10px;background:rgba(42,127,142,0.15);border:1px solid rgba(42,127,142,0.4);border-radius:8px;color:var(--accent-light);font-size:14px;cursor:pointer;flex-shrink:0;transition:all 0.15s;line-height:1" title="BEATRIX Command Mode aktiv (klicken zum Beenden)">💡</button>
                     <input type="file" id="mainChatFileInput" style="display:none" accept=".pdf,.txt,.md,.csv,.json,.docx,.png,.jpg,.jpeg,.gif,.webp" onchange="mainChatFileSelected(this)" multiple>
                     <button onclick="document.getElementById('mainChatFileInput').click()" style="padding:8px 10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:rgba(255,255,255,0.4);font-size:14px;cursor:pointer;flex-shrink:0;transition:all 0.15s;line-height:1" title="Datei anhängen">📎</button>
                     <div style="flex:1;position:relative">
-                        <textarea class="chat-input" id="chatInput" placeholder="Stelle eine Frage an BEATRIX..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}" oninput="autoResize(this)"></textarea>
+                        <textarea class="chat-input" id="chatInput" placeholder="💡 Beschreibe was du brauchst... Projekt, Lead, Modell, Kontext-Analyse..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}" oninput="autoResize(this)"></textarea>
                     </div>
                     <button class="chat-send-btn" id="chatSendBtn" onclick="sendChat()" title="Senden">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -8012,7 +8012,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         // ── BEATRIX COMMAND MODE (Universal Intent) ──
-        let bxCmdMode = false;
+        let bxCmdMode = true;  // Always on by default – intent router handles everything
         let bxCmdDraft = {};
         let bxCmdHistory = [];
         let bxCmdIntent = '';  // current active intent
