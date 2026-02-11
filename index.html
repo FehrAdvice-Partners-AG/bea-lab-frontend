@@ -2024,9 +2024,10 @@
                 <div id="crmCompanyForm" style="display:none;margin-bottom:16px;padding:20px;background:var(--navy-card);border:1px solid var(--border);border-radius:12px">
                     <div style="font-size:14px;font-weight:600;color:white;margin-bottom:14px">🏢 Neue Firma anlegen</div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                        <div>
-                            <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Firmenname *</label>
-                            <input id="ncName" type="text" placeholder="z.B. Swisscom AG" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
+                        <div style="position:relative">
+                            <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Firmenname * <span id="zefixStatus" style="color:#4dd0e1;font-size:9px;margin-left:6px"></span></label>
+                            <input id="ncName" type="text" placeholder="z.B. Swisscom AG – Zefix sucht automatisch" oninput="zefixAutoSearch()" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
+                            <div id="zefixResults" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:#1a2744;border:1px solid var(--border);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5)"></div>
                         </div>
                         <div>
                             <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Kürzel (3-5 Buchstaben)</label>
@@ -5470,6 +5471,98 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             showSection('companies', document.querySelector('[data-section=companies]'));
         }
 
+        // ── Zefix Auto-Search ──
+        let _zefixTimer = null;
+        let _zefixCache = {};
+        function zefixAutoSearch() {
+            const q = document.getElementById('ncName').value.trim();
+            const status = document.getElementById('zefixStatus');
+            const results = document.getElementById('zefixResults');
+            if (q.length < 3) { results.style.display = 'none'; status.textContent = ''; return; }
+            clearTimeout(_zefixTimer);
+            status.textContent = '🔍 suche…';
+            _zefixTimer = setTimeout(async () => {
+                if (_zefixCache[q]) { zefixShowResults(_zefixCache[q]); return; }
+                try {
+                    const resp = await fetch(`${API}/api/zefix/search?q=${encodeURIComponent(q)}&limit=8`, { headers: H() });
+                    if (!resp.ok) { status.textContent = '⚠️ Zefix offline'; return; }
+                    const data = await resp.json();
+                    _zefixCache[q] = data.results;
+                    zefixShowResults(data.results);
+                } catch(e) { status.textContent = '⚠️ Zefix-Fehler'; }
+            }, 400);
+        }
+        function zefixShowResults(items) {
+            const results = document.getElementById('zefixResults');
+            const status = document.getElementById('zefixStatus');
+            if (!items || !items.length) {
+                results.style.display = 'none';
+                status.textContent = 'Kein Zefix-Treffer';
+                return;
+            }
+            status.textContent = `${items.length} Zefix-Treffer`;
+            results.innerHTML = items.map((z, i) => `
+                <div onclick="zefixSelect(${i})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s"
+                     onmouseover="this.style.background='rgba(77,208,225,0.08)'" onmouseout="this.style.background='transparent'">
+                    <div style="font-size:13px;color:white;font-weight:500">${z.legal_name}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">
+                        ${z.legal_form ? '<span style="color:#4dd0e1">'+z.legal_form+'</span> · ' : ''}${z.locality || ''}${z.postal_code ? ' ('+z.postal_code+')' : ''}${z.uid ? ' · UID: '+z.uid : ''}
+                    </div>
+                </div>`).join('');
+            results.style.display = 'block';
+            results._data = items;
+        }
+        function zefixSelect(idx) {
+            const results = document.getElementById('zefixResults');
+            const z = results._data[idx];
+            if (!z) return;
+            // Fill form
+            document.getElementById('ncName').value = z.legal_name;
+            // Auto-generate code
+            const words = z.legal_name.replace(/AG$|GmbH$|SA$|Ltd\.?$/i, '').trim().split(/\s+/);
+            let code = words.length > 1 ? words.map(w => w[0]).join('').toUpperCase().slice(0,5) : z.legal_name.replace(/\s/g,'').slice(0,4).toUpperCase();
+            code = code.replace(/[^A-Z]/g, '');
+            document.getElementById('ncCode').value = code;
+            // Fill address
+            if (z.locality) {
+                const cantonMap = {'Zürich':'CH','Bern':'CH','Basel':'CH','Luzern':'CH','St. Gallen':'CH','Genf':'CH','Wien':'AT','München':'DE'};
+                // Keep CH default
+            }
+            // Store Zefix data for notes
+            const parts = [];
+            if (z.uid) parts.push('UID: ' + z.uid);
+            if (z.street) parts.push(z.street);
+            if (z.postal_code || z.locality) parts.push([z.postal_code, z.locality].filter(Boolean).join(' '));
+            if (z.legal_form) parts.push(z.legal_form);
+            document.getElementById('ncNotes').value = parts.join(' | ');
+            results.style.display = 'none';
+            document.getElementById('zefixStatus').innerHTML = '✅ <span style="color:#4dd0e1">Zefix-Daten übernommen</span>';
+        }
+        // Close dropdown on outside click
+        document.addEventListener('click', e => {
+            const r = document.getElementById('zefixResults');
+            if (r && !r.contains(e.target) && e.target.id !== 'ncName') r.style.display = 'none';
+        });
+
+        async function zefixEnrichCompany(code, name) {
+            showToast('🔍 Suche in Zefix…', 'info');
+            try {
+                const resp = await fetch(`${API}/api/zefix/search?q=${encodeURIComponent(name)}&limit=5`, { headers: H() });
+                if (!resp.ok) throw new Error('Zefix nicht erreichbar');
+                const data = await resp.json();
+                if (!data.results?.length) { showToast('Kein Zefix-Treffer für ' + name, 'warning'); return; }
+                const z = data.results[0];
+                const parts = [];
+                if (z.legal_name) parts.push(`<b>${z.legal_name}</b>`);
+                if (z.uid) parts.push(`UID: ${z.uid}`);
+                if (z.legal_form) parts.push(z.legal_form);
+                if (z.street) parts.push(z.street);
+                if (z.postal_code || z.locality) parts.push([z.postal_code, z.locality].filter(Boolean).join(' '));
+                if (z.description) parts.push(`<br><span style="font-size:11px;color:rgba(255,255,255,0.3)">${z.description.slice(0,180)}…</span>`);
+                showToast(`🏛️ Zefix: ${parts.join(' · ')}`, 'success', 8000);
+            } catch(e) { showToast('Zefix-Fehler: ' + e.message, 'error'); }
+        }
+
         function crmToggleCompanyForm() {
             const f = document.getElementById('crmCompanyForm');
             f.style.display = f.style.display === 'none' ? 'block' : 'none';
@@ -5494,7 +5587,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 });
                 const data = await resp.json();
                 if (!resp.ok) throw new Error(data.detail || 'Fehler');
-                showToast(`✅ ${name} angelegt (${data.code}) – GitHub: ${data.github}`, 'success');
+                showToast(`✅ ${name} angelegt (${data.code}) – GitHub: ${data.github}${data.zefix ? ' · Zefix ✓' : ''}`, 'success');
                 document.getElementById('crmCompanyForm').style.display = 'none';
                 ['ncName','ncCode','ncWebsite','ncNotes'].forEach(id => document.getElementById(id).value = '');
                 crmLoadCompanies();
@@ -5660,6 +5753,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 </div>
                 ${company.website?`<div style="margin-top:12px"><a href="${company.website}" target="_blank" style="font-size:11px;color:var(--accent)">${company.website}</a></div>`:''}
                 ${company.notes?`<div style="margin-top:12px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5">${company.notes}</div>`:''}
+                <button onclick="zefixEnrichCompany('${company.code}','${(company.name||'').replace(/'/g,"\\'")}')" style="margin-top:12px;padding:5px 12px;font-size:11px;background:rgba(77,208,225,0.08);color:#4dd0e1;border:1px solid rgba(77,208,225,0.2);border-radius:8px;cursor:pointer">🔍 Zefix nachschlagen</button>
             </div>`;
 
             // Data Card
