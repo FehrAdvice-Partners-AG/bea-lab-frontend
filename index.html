@@ -298,7 +298,7 @@
         .chat-header h2 { font-size:22px; font-weight:800; color:var(--white); margin-bottom:4px; }
         .chat-header h2 span { background:linear-gradient(135deg,var(--accent),var(--accent-light)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
         .chat-header p { font-size:13px; color:var(--text-secondary); }
-        .chat-messages { flex:3 1 0%; overflow-y:auto; padding:8px 0 16px; display:flex; flex-direction:column; gap:16px; scroll-behavior:smooth; cursor:text; min-height:80px; }
+        .chat-messages { flex:3 1 0%; overflow-y:auto; padding:8px 0 16px; display:flex; flex-direction:column; gap:16px; scroll-behavior:smooth; min-height:80px; }
         .chat-messages::-webkit-scrollbar { width:6px; } .chat-messages::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
         .chat-msg { display:flex; gap:12px; max-width:85%; animation:msgIn 0.3s ease; }
         @keyframes msgIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
@@ -329,17 +329,32 @@
             .chat-input-area { padding:6px 0 8px; }
             .footer { display:none; }
         }
-        .keyboard-open .chat-header { display:none; }
+        /* ── Keyboard open: ALL devices ── */
         .keyboard-open .footer { display:none !important; }
-        .keyboard-open .chat-input-area { padding:4px 0 4px; flex:1; display:flex; flex-direction:column; }
-        .keyboard-open .chat-input-wrap { flex:1; align-items:stretch; }
         .keyboard-open #prjChatIndicator { display:none; }
-        .keyboard-open .chat-messages { display:none; }
-        .keyboard-open .chat-input { min-height:120px; max-height:50vh; flex:1; }
         .keyboard-open .chat-welcome { display:none; }
-        .keyboard-open #mainChatAttachments { display:none !important; }
-        .keyboard-open .nav { display:none; }
-        .keyboard-open .chat-container { height:100dvh; height:100vh; padding-top:8px; }
+        .keyboard-open .chat-header { display:none; }
+
+        /* ── Keyboard open: Tablet (iPad etc.) ── */
+        @media (min-width:601px) {
+            .keyboard-open .chat-messages { flex:2 1 0%; min-height:120px; max-height:40vh; }
+            .keyboard-open .chat-input-area { flex:1 1 0%; min-height:80px; }
+            .keyboard-open .chat-input { min-height:60px; max-height:30vh; }
+            .keyboard-open .chat-container { height:100dvh; height:100vh; }
+            .keyboard-open .nav { height:48px; padding:0 20px; }
+            .keyboard-open .nav-title { font-size:13px; }
+        }
+
+        /* ── Keyboard open: Phone only ── */
+        @media (max-width:600px) {
+            .keyboard-open .chat-input-area { padding:4px 0 4px; flex:1; display:flex; flex-direction:column; }
+            .keyboard-open .chat-input-wrap { flex:1; align-items:stretch; }
+            .keyboard-open .chat-messages { display:none; }
+            .keyboard-open .chat-input { min-height:120px; max-height:50vh; flex:1; }
+            .keyboard-open #mainChatAttachments { display:none !important; }
+            .keyboard-open .nav { display:none; }
+            .keyboard-open .chat-container { height:100dvh; height:100vh; padding-top:8px; }
+        }
         .chat-send-btn { width:42px; height:42px; border-radius:12px; background:var(--accent); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:var(--transition); flex-shrink:0; }
         .chat-send-btn:hover { background:var(--accent-light); transform:scale(1.05); }
         .chat-send-btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
@@ -8108,8 +8123,10 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         let chatLoaded = false;
 
         function chatAreaClick(e) {
-            // Click on empty chat area or welcome → focus input
+            // Click on empty chat area or welcome → focus input (desktop only)
             if (e.target.closest('.chat-msg') || e.target.closest('button') || e.target.closest('a') || e.target.closest('pre') || e.target.closest('code')) return;
+            const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            if (isTouch) return; // Don't auto-focus on touch devices – prevents keyboard popup
             const input = document.getElementById('chatInput');
             if (input) input.focus();
         }
@@ -8121,6 +8138,13 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
             let keyboardOpen = false;
             const toggle = (open) => {
+                if (open === keyboardOpen) return;
+                // Only apply keyboard mode in chat section
+                const chatSection = document.getElementById('chat-section');
+                if (!chatSection || !chatSection.classList.contains('active')) { open = false; }
+                // Only apply if a chat input is focused
+                const active = document.activeElement;
+                if (open && active && active.id !== 'chatInput') { open = false; }
                 if (open === keyboardOpen) return;
                 keyboardOpen = open;
                 document.body.classList.toggle('keyboard-open', open);
@@ -8142,14 +8166,14 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 });
             }
 
-            // Method 2: focus/blur fallback
+            // Method 2: focus/blur fallback – only for chatInput
             document.addEventListener('focusin', (e) => {
-                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+                if (e.target.id === 'chatInput') {
                     setTimeout(() => toggle(true), 300);
                 }
             });
             document.addEventListener('focusout', (e) => {
-                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+                if (e.target.id === 'chatInput') {
                     setTimeout(() => toggle(false), 100);
                 }
             });
