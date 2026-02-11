@@ -2018,6 +2018,78 @@
                         <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px" id="crmCompaniesCount"></div>
                     </div>
                     <input id="crmCompaniesSearch" type="text" placeholder="Suchen…" oninput="crmFilterCompanies()" style="font-size:13px;padding:8px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;color:white;width:min(240px,40vw);outline:none">
+                    <button class="mb-btn mb-btn-primary" onclick="crmToggleCompanyForm()" style="font-size:12px;padding:6px 14px">+ Neue Firma</button>
+                </div>
+                <!-- New Company Form -->
+                <div id="crmCompanyForm" style="display:none;margin-bottom:16px;padding:20px;background:var(--navy-card);border:1px solid var(--border);border-radius:12px">
+                    <div style="font-size:14px;font-weight:600;color:white;margin-bottom:14px">🏢 Neue Firma anlegen</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                        <div>
+                            <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Firmenname *</label>
+                            <input id="ncName" type="text" placeholder="z.B. Swisscom AG" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
+                        </div>
+                        <div>
+                            <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Kürzel (3-5 Buchstaben)</label>
+                            <input id="ncCode" type="text" placeholder="z.B. SWC" maxlength="6" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none;text-transform:uppercase">
+                        </div>
+                        <div>
+                            <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Branche</label>
+                            <select id="ncIndustry" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
+                                <option value="">– Auswählen –</option>
+                                <option value="finance">Finanz</option>
+                                <option value="insurance">Versicherung</option>
+                                <option value="retail">Handel</option>
+                                <option value="fmcg">FMCG</option>
+                                <option value="construction">Bau</option>
+                                <option value="packaging">Verpackung</option>
+                                <option value="public_sector">Öffentlicher Sektor</option>
+                                <option value="telecom">Telekom</option>
+                                <option value="media">Medien</option>
+                                <option value="automotive">Automobil</option>
+                                <option value="pharma_health">Pharma / Health</option>
+                                <option value="manufacturing">Industrie</option>
+                                <option value="technology">Technologie</option>
+                                <option value="energy">Energie</option>
+                                <option value="transport">Transport</option>
+                                <option value="creative">Kreativ</option>
+                                <option value="ngo">NGO / Verband</option>
+                                <option value="consulting">Consulting</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Land</label>
+                            <select id="ncCountry" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
+                                <option value="CH">🇨🇭 Schweiz</option>
+                                <option value="AT">🇦🇹 Österreich</option>
+                                <option value="DE">🇩🇪 Deutschland</option>
+                                <option value="SE">🇸🇪 Schweden</option>
+                                <option value="UK">🇬🇧 UK</option>
+                                <option value="US">🇺🇸 USA</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Website</label>
+                            <input id="ncWebsite" type="text" placeholder="z.B. www.swisscom.ch" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
+                        </div>
+                        <div>
+                            <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Owner</label>
+                            <select id="ncOwner" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
+                                <option value="GF">GF – Gerhard Fehr</option>
+                                <option value="AF">AF – Andrea Fehr</option>
+                                <option value="MR">MR</option>
+                                <option value="MdL">MdL</option>
+                                <option value="AJ">AJ</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px">
+                        <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Notizen</label>
+                        <input id="ncNotes" type="text" placeholder="Optional" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+                        <button onclick="crmToggleCompanyForm()" class="mb-btn mb-btn-back" style="font-size:12px;padding:6px 14px">Abbrechen</button>
+                        <button onclick="crmSaveNewCompany()" class="mb-btn mb-btn-primary" style="font-size:12px;padding:6px 14px" id="ncSaveBtn">Firma anlegen</button>
+                    </div>
                 </div>
                 <!-- Category Cards -->
                 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="companyCategoryCards">
@@ -5398,6 +5470,38 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             showSection('companies', document.querySelector('[data-section=companies]'));
         }
 
+        function crmToggleCompanyForm() {
+            const f = document.getElementById('crmCompanyForm');
+            f.style.display = f.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function crmSaveNewCompany() {
+            const name = document.getElementById('ncName').value.trim();
+            if (!name) { showToast('Firmenname erforderlich', 'error'); return; }
+            const btn = document.getElementById('ncSaveBtn');
+            btn.disabled = true; btn.textContent = 'Wird angelegt…';
+            try {
+                const resp = await fetch(`${API}/api/crm/companies`, {
+                    method: 'POST', headers: { ...H(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name, code: document.getElementById('ncCode').value.trim(),
+                        industry: document.getElementById('ncIndustry').value,
+                        country: document.getElementById('ncCountry').value,
+                        website: document.getElementById('ncWebsite').value.trim(),
+                        fa_owner: document.getElementById('ncOwner').value,
+                        notes: document.getElementById('ncNotes').value.trim()
+                    })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.detail || 'Fehler');
+                showToast(`✅ ${name} angelegt (${data.code}) – GitHub: ${data.github}`, 'success');
+                document.getElementById('crmCompanyForm').style.display = 'none';
+                ['ncName','ncCode','ncWebsite','ncNotes'].forEach(id => document.getElementById(id).value = '');
+                crmLoadCompanies();
+            } catch(e) { showToast('Fehler: ' + e.message, 'error'); }
+            finally { btn.disabled = false; btn.textContent = 'Firma anlegen'; }
+        }
+
         async function crmLoadCompanies() {
             document.getElementById('companiesListView').style.display = '';
             document.getElementById('companiesProfileView').style.display = 'none';
@@ -6985,6 +7089,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         switch(intent) {
                             case 'project': cardHtml = renderProjectCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'lead': cardHtml = renderLeadCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
+                            case 'company': cardHtml = renderCompanyCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'model': cardHtml = renderModelCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'context': cardHtml = renderContextCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'task': cardHtml = renderTaskCard(prjChatDraft, d.status, d.missing, d.confidence, d.message); break;
@@ -8821,6 +8926,28 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             return bxCard('🔬','Modell', rgb, isComplete, f, missing, message, confidence, isComplete ? `<button onclick="bxConfirmModel()" style="${bxBtnConfirm}">✓ Modell speichern</button><button onclick="bxRefine()" style="${bxBtnRefine}">✏ Anpassen</button>` : '');
         }
 
+        function renderCompanyCard(data, status, missing, confidence, message) {
+            const d = data;
+            const rgb = '96,165,250'; // blue
+            const isComplete = status === 'complete' && confidence >= 0.6;
+            const indLabels = {finance:'Finanz',insurance:'Versicherung',retail:'Handel',fmcg:'FMCG',construction:'Bau',packaging:'Verpackung',public_sector:'Öffentlich',telecom:'Telekom',media:'Medien',automotive:'Automobil',pharma_health:'Pharma/Health',manufacturing:'Industrie',technology:'Technologie',energy:'Energie',transport:'Transport',creative:'Kreativ',ngo:'NGO/Verband',consulting:'Consulting'};
+            const flags = {CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',SE:'🇸🇪',UK:'🇬🇧',US:'🇺🇸'};
+            const field = (l,v) => v ? `<div style="display:flex;gap:8px;padding:3px 0"><span style="color:rgba(255,255,255,0.3);min-width:100px;font-size:11px">${l}</span><span style="color:white;font-size:12px">${v}</span></div>` : '';
+            let f = '';
+            f += field('Firma', d.name);
+            if (d.code) f += field('Kürzel', `<span style="font-family:monospace;color:var(--accent)">${d.code.toUpperCase()}</span>`);
+            if (d.short_name) f += field('Kurzname', d.short_name);
+            const country = d.country || 'CH';
+            f += field('Land', `${flags[country]||''} ${country}`);
+            if (d.industry) f += field('Branche', indLabels[d.industry] || d.industry);
+            if (d.website) f += field('Website', d.website);
+            if (d.fa_owner) f += field('Owner', d.fa_owner);
+            const neuBadge = d.is_new_customer === false ? '<span style="padding:2px 8px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:8px;font-size:10px;color:#34d399;font-weight:600">Bestandskunde</span>' : '<span style="padding:2px 8px;background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.3);border-radius:8px;font-size:10px;color:rgb(96,165,250);font-weight:600">Neukunde</span>';
+            f += `<div style="padding:3px 0">${neuBadge}</div>`;
+            if (d.notes) f += field('Notizen', d.notes);
+            return bxCard('🏢','Firma', rgb, isComplete, f, missing, message, confidence, isComplete ? `<button onclick="bxConfirmCompany()" style="${bxBtnConfirm}">✓ Firma anlegen → Registry</button><button onclick="bxRefine()" style="${bxBtnRefine}">✏ Anpassen</button>` : '');
+        }
+
         function renderContextCard(data, status, missing, confidence, message) {
             const d = data;
             const rgb = '232,163,61';
@@ -9096,6 +9223,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         switch(intent) {
                             case 'project': cardHtml = renderProjectCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'lead': cardHtml = renderLeadCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
+                            case 'company': cardHtml = renderCompanyCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'model': cardHtml = renderModelCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'context': cardHtml = renderContextCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
                             case 'task': cardHtml = renderTaskCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
@@ -9231,6 +9359,40 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     bxShowSuccess('Lead erfasst', leadCode, d.opportunity||d.customer_name, 'lead', '');
                     bxCmdDraft = {}; bxCmdHistory = []; bxCmdIntent = '';
                     showToast(`✓ ${leadCode || 'Lead'} erfasst!`, 'success');
+                } else { appendMessage('assistant', '❌ ' + (res.error||res.detail||'Fehler')); }
+            } catch(e) { removeTyping(); appendMessage('assistant', '❌ ' + e.message); }
+        }
+
+        async function bxConfirmCompany() {
+            const d = bxCmdDraft;
+            if (!d.name) { showToast('Firmenname fehlt', 'error'); return; }
+            showTyping('Firma wird angelegt...');
+            try {
+                const payload = {
+                    name: d.name,
+                    code: d.code || '',
+                    short_name: d.short_name || d.code || '',
+                    industry: d.industry || '',
+                    country: d.country || 'CH',
+                    website: d.website || '',
+                    fa_owner: d.fa_owner || '',
+                    notes: d.notes || '',
+                    is_new_customer: d.is_new_customer !== false
+                };
+                const r = await fetch(`${API}/api/crm/companies`, {
+                    method: 'POST', headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const res = await r.json();
+                removeTyping();
+                if (r.ok) {
+                    const code = res.code || d.code || '';
+                    const ghStatus = res.github === 'added' ? ' + GitHub Registry' : res.github === 'exists' ? ' (existierte schon in Registry)' : '';
+                    bxShowSuccess('Firma angelegt', `CUS-${code}`, d.name, 'company', '');
+                    bxCmdDraft = {}; bxCmdHistory = []; bxCmdIntent = '';
+                    showToast(`✓ ${d.name} (${code}) angelegt${ghStatus}`, 'success');
+                    // Refresh companies view if loaded
+                    if (crmCompaniesData.length) crmLoadCompanies();
                 } else { appendMessage('assistant', '❌ ' + (res.error||res.detail||'Fehler')); }
             } catch(e) { removeTyping(); appendMessage('assistant', '❌ ' + e.message); }
         }
