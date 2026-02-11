@@ -2026,8 +2026,8 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                         <div style="position:relative">
                             <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Firmenname * <span id="zefixStatus" style="color:#4dd0e1;font-size:9px;margin-left:6px"></span></label>
-                            <input id="ncName" type="text" placeholder="z.B. Swisscom AG – Zefix sucht automatisch" oninput="zefixAutoSearch()" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
-                            <div id="zefixResults" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:#1a2744;border:1px solid var(--border);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5)"></div>
+                            <input id="ncName" type="text" placeholder="z.B. Swisscom AG, BMW AG – sucht in CH 🇨🇭 + DE 🇩🇪" oninput="registryAutoSearch()" style="width:100%;box-sizing:border-box;padding:8px 12px;margin-top:4px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;outline:none">
+                            <div id="zefixResults" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;background:#1a2744;border:1px solid var(--border);border-radius:0 0 10px 10px;max-height:280px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5)"></div>
                         </div>
                         <div>
                             <label style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Kürzel (3-5 Buchstaben)</label>
@@ -5471,73 +5471,114 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             showSection('companies', document.querySelector('[data-section=companies]'));
         }
 
-        // ── Zefix Auto-Search ──
-        let _zefixTimer = null;
-        let _zefixCache = {};
-        function zefixAutoSearch() {
+        // ── Unified Registry Auto-Search (CH: Zefix + DE: Handelsregister.ai) ──
+        let _regTimer = null;
+        let _regCache = {};
+        function registryAutoSearch() {
             const q = document.getElementById('ncName').value.trim();
             const status = document.getElementById('zefixStatus');
             const results = document.getElementById('zefixResults');
             if (q.length < 3) { results.style.display = 'none'; status.textContent = ''; return; }
-            clearTimeout(_zefixTimer);
-            status.textContent = '🔍 suche…';
-            _zefixTimer = setTimeout(async () => {
-                if (_zefixCache[q]) { zefixShowResults(_zefixCache[q]); return; }
+            clearTimeout(_regTimer);
+            status.textContent = '🔍 suche CH+DE…';
+            _regTimer = setTimeout(async () => {
+                if (_regCache[q]) { registryShowResults(_regCache[q]); return; }
                 try {
-                    const resp = await fetch(`${API}/api/zefix/search?q=${encodeURIComponent(q)}&limit=8`, { headers: H() });
-                    if (!resp.ok) { status.textContent = '⚠️ Zefix offline'; return; }
+                    const resp = await fetch(`${API}/api/registry/search?q=${encodeURIComponent(q)}&limit=8`, { headers: H() });
+                    if (!resp.ok) {
+                        // Fallback: try Zefix only
+                        const zResp = await fetch(`${API}/api/zefix/search?q=${encodeURIComponent(q)}&limit=8`, { headers: H() });
+                        if (zResp.ok) {
+                            const zData = await zResp.json();
+                            const mapped = (zData.results||[]).map(r => ({...r, _source:'zefix', _country:'CH', _flag:'🇨🇭'}));
+                            _regCache[q] = mapped;
+                            registryShowResults(mapped);
+                        } else { status.textContent = '⚠️ Register offline'; }
+                        return;
+                    }
                     const data = await resp.json();
-                    _zefixCache[q] = data.results;
-                    zefixShowResults(data.results);
-                } catch(e) { status.textContent = '⚠️ Zefix-Fehler'; }
+                    _regCache[q] = data.results;
+                    registryShowResults(data.results);
+                } catch(e) { status.textContent = '⚠️ Suchfehler'; }
             }, 400);
         }
-        function zefixShowResults(items) {
+        // Backward compat
+        function zefixAutoSearch() { registryAutoSearch(); }
+
+        function registryShowResults(items) {
             const results = document.getElementById('zefixResults');
             const status = document.getElementById('zefixStatus');
             if (!items || !items.length) {
                 results.style.display = 'none';
-                status.textContent = 'Kein Zefix-Treffer';
+                status.textContent = 'Kein Treffer (CH/DE)';
                 return;
             }
-            status.textContent = `${items.length} Zefix-Treffer`;
-            results.innerHTML = items.map((z, i) => `
-                <div onclick="zefixSelect(${i})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s"
+            const chCount = items.filter(i => i._country === 'CH').length;
+            const deCount = items.filter(i => i._country === 'DE').length;
+            const parts = [];
+            if (chCount) parts.push(`🇨🇭${chCount}`);
+            if (deCount) parts.push(`🇩🇪${deCount}`);
+            status.textContent = `${items.length} Treffer (${parts.join(' + ')})`;
+            results.innerHTML = items.map((z, i) => {
+                const flag = z._flag || (z._country === 'DE' ? '🇩🇪' : '🇨🇭');
+                const name = z.legal_name || z.name || '';
+                const form = z.legal_form || '';
+                const loc = z.locality || z.city || '';
+                const pc = z.postal_code || z.zip_code || '';
+                const uid = z.uid || (z.register_type ? `${z.register_type} ${z.register_number||''}` : '') || '';
+                const tagColor = z._country === 'DE' ? '#ffb74d' : '#4dd0e1';
+                return `<div onclick="registrySelect(${i})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s"
                      onmouseover="this.style.background='rgba(77,208,225,0.08)'" onmouseout="this.style.background='transparent'">
-                    <div style="font-size:13px;color:white;font-weight:500">${z.legal_name}</div>
+                    <div style="font-size:13px;color:white;font-weight:500">${flag} ${name}</div>
                     <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">
-                        ${z.legal_form ? '<span style="color:#4dd0e1">'+z.legal_form+'</span> · ' : ''}${z.locality || ''}${z.postal_code ? ' ('+z.postal_code+')' : ''}${z.uid ? ' · UID: '+z.uid : ''}
+                        ${form ? '<span style="color:'+tagColor+'">'+form+'</span> · ' : ''}${loc}${pc ? ' ('+pc+')' : ''}${uid ? ' · '+uid : ''}
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
             results.style.display = 'block';
             results._data = items;
         }
-        function zefixSelect(idx) {
+        // Backward compat
+        function zefixShowResults(items) { registryShowResults(items); }
+
+        function registrySelect(idx) {
             const results = document.getElementById('zefixResults');
             const z = results._data[idx];
             if (!z) return;
+            const isDE = z._country === 'DE';
+            const name = z.legal_name || z.name || '';
             // Fill form
-            document.getElementById('ncName').value = z.legal_name;
+            document.getElementById('ncName').value = name;
             // Auto-generate code
-            const words = z.legal_name.replace(/AG$|GmbH$|SA$|Ltd\.?$/i, '').trim().split(/\s+/);
-            let code = words.length > 1 ? words.map(w => w[0]).join('').toUpperCase().slice(0,5) : z.legal_name.replace(/\s/g,'').slice(0,4).toUpperCase();
+            const words = name.replace(/AG$|GmbH$|SA$|Ltd\.?$|SE$|e\.V\.$|eG$/i, '').trim().split(/\s+/);
+            let code = words.length > 1 ? words.map(w => w[0]).join('').toUpperCase().slice(0,5) : name.replace(/\s/g,'').slice(0,4).toUpperCase();
             code = code.replace(/[^A-Z]/g, '');
             document.getElementById('ncCode').value = code;
-            // Fill address
-            if (z.locality) {
-                const cantonMap = {'Zürich':'CH','Bern':'CH','Basel':'CH','Luzern':'CH','St. Gallen':'CH','Genf':'CH','Wien':'AT','München':'DE'};
-                // Keep CH default
-            }
-            // Store Zefix data for notes
+            // Store data for notes
             const parts = [];
-            if (z.uid) parts.push('UID: ' + z.uid);
-            if (z.street) parts.push(z.street);
-            if (z.postal_code || z.locality) parts.push([z.postal_code, z.locality].filter(Boolean).join(' '));
-            if (z.legal_form) parts.push(z.legal_form);
+            if (isDE) {
+                if (z.register_type) parts.push(`${z.register_type} ${z.register_number||''}`);
+                if (z.register_court) parts.push(z.register_court);
+                const street = z.street ? `${z.street} ${z.house_number||''}`.trim() : '';
+                if (street) parts.push(street);
+                const loc = z.zip_code || z.city ? [z.zip_code, z.city].filter(Boolean).join(' ') : '';
+                if (loc) parts.push(loc);
+                if (z.legal_form) parts.push(z.legal_form);
+            } else {
+                if (z.uid) parts.push('UID: ' + z.uid);
+                if (z.street) parts.push(z.street);
+                if (z.postal_code || z.locality) parts.push([z.postal_code, z.locality].filter(Boolean).join(' '));
+                if (z.legal_form) parts.push(z.legal_form);
+            }
             document.getElementById('ncNotes').value = parts.join(' | ');
             results.style.display = 'none';
-            document.getElementById('zefixStatus').innerHTML = '✅ <span style="color:#4dd0e1">Zefix-Daten übernommen</span>';
+            const flag = isDE ? '🇩🇪' : '🇨🇭';
+            const src = isDE ? 'Handelsregister' : 'Zefix';
+            document.getElementById('zefixStatus').innerHTML = `✅ <span style="color:${isDE?'#ffb74d':'#4dd0e1'}">${flag} ${src}-Daten übernommen</span>`;
         }
+        // Backward compat
+        function zefixSelect(idx) { registrySelect(idx); }
+
         // Close dropdown on outside click
         document.addEventListener('click', e => {
             const r = document.getElementById('zefixResults');
@@ -5545,22 +5586,35 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         });
 
         async function zefixEnrichCompany(code, name) {
-            showToast('🔍 Suche in Zefix…', 'info');
+            showToast('🔍 Suche in CH+DE Registern…', 'info');
             try {
-                const resp = await fetch(`${API}/api/zefix/search?q=${encodeURIComponent(name)}&limit=5`, { headers: H() });
-                if (!resp.ok) throw new Error('Zefix nicht erreichbar');
+                // Try unified search first
+                const resp = await fetch(`${API}/api/registry/search?q=${encodeURIComponent(name)}&limit=5`, { headers: H() });
+                if (!resp.ok) throw new Error('Register nicht erreichbar');
                 const data = await resp.json();
-                if (!data.results?.length) { showToast('Kein Zefix-Treffer für ' + name, 'warning'); return; }
+                if (!data.results?.length) { showToast('Kein Treffer für ' + name, 'warning'); return; }
                 const z = data.results[0];
+                const isDE = z._country === 'DE';
+                const flag = isDE ? '🇩🇪' : '🇨🇭';
                 const parts = [];
-                if (z.legal_name) parts.push(`<b>${z.legal_name}</b>`);
-                if (z.uid) parts.push(`UID: ${z.uid}`);
-                if (z.legal_form) parts.push(z.legal_form);
-                if (z.street) parts.push(z.street);
-                if (z.postal_code || z.locality) parts.push([z.postal_code, z.locality].filter(Boolean).join(' '));
-                if (z.description) parts.push(`<br><span style="font-size:11px;color:rgba(255,255,255,0.3)">${z.description.slice(0,180)}…</span>`);
-                showToast(`🏛️ Zefix: ${parts.join(' · ')}`, 'success', 8000);
-            } catch(e) { showToast('Zefix-Fehler: ' + e.message, 'error'); }
+                const dName = z.legal_name || z.name || '';
+                if (dName) parts.push(`<b>${dName}</b>`);
+                if (isDE) {
+                    if (z.register_type) parts.push(`${z.register_type} ${z.register_number||''}`);
+                    if (z.legal_form) parts.push(z.legal_form);
+                    const street = z.street ? `${z.street} ${z.house_number||''}`.trim() : '';
+                    if (street) parts.push(street);
+                    if (z.zip_code || z.city) parts.push([z.zip_code, z.city].filter(Boolean).join(' '));
+                } else {
+                    if (z.uid) parts.push(`UID: ${z.uid}`);
+                    if (z.legal_form) parts.push(z.legal_form);
+                    if (z.street) parts.push(z.street);
+                    if (z.postal_code || z.locality) parts.push([z.postal_code, z.locality].filter(Boolean).join(' '));
+                }
+                const desc = z.description || z.zefix_description || '';
+                if (desc) parts.push(`<br><span style="font-size:11px;color:rgba(255,255,255,0.3)">${desc.slice(0,180)}…</span>`);
+                showToast(`${flag} ${parts.join(' · ')}`, 'success', 8000);
+            } catch(e) { showToast('Register-Fehler: ' + e.message, 'error'); }
         }
 
         function crmToggleCompanyForm() {
@@ -5753,7 +5807,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 </div>
                 ${company.website?`<div style="margin-top:12px"><a href="${company.website}" target="_blank" style="font-size:11px;color:var(--accent)">${company.website}</a></div>`:''}
                 ${company.notes?`<div style="margin-top:12px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5">${company.notes}</div>`:''}
-                <button onclick="zefixEnrichCompany('${company.code}','${(company.name||'').replace(/'/g,"\\'")}')" style="margin-top:12px;padding:5px 12px;font-size:11px;background:rgba(77,208,225,0.08);color:#4dd0e1;border:1px solid rgba(77,208,225,0.2);border-radius:8px;cursor:pointer">🔍 Zefix nachschlagen</button>
+                <button onclick="zefixEnrichCompany('${company.code}','${(company.name||'').replace(/'/g,"\\'")}')" style="margin-top:12px;padding:5px 12px;font-size:11px;background:rgba(77,208,225,0.08);color:#4dd0e1;border:1px solid rgba(77,208,225,0.2);border-radius:8px;cursor:pointer">🔍 Register nachschlagen (🇨🇭/🇩🇪)</button>
             </div>`;
 
             // Data Card
