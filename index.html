@@ -722,7 +722,7 @@
                 <div id="mainChatAttachments" style="display:none;padding:0 0 8px;display:flex;flex-wrap:wrap;gap:6px"></div>
                 <div class="chat-input-wrap">
                     <button id="prjChatToggle" onclick="toggleBxCmd()" style="padding:8px 10px;background:rgba(42,127,142,0.15);border:1px solid rgba(42,127,142,0.4);border-radius:8px;color:var(--accent-light);font-size:14px;cursor:pointer;flex-shrink:0;transition:all 0.15s;line-height:1;align-self:flex-end" title="BEATRIX Command Mode aktiv (klicken zum Beenden)">💡</button>
-                    <input type="file" id="mainChatFileInput" style="display:none" accept=".pdf,.txt,.md,.csv,.json,.docx,.png,.jpg,.jpeg,.gif,.webp" onchange="mainChatFileSelected(this)" multiple>
+                    <input type="file" id="mainChatFileInput" style="display:none" accept=".pdf,.txt,.md,.csv,.json,.docx,.ics,.png,.jpg,.jpeg,.gif,.webp" onchange="mainChatFileSelected(this)" multiple>
                     <button onclick="document.getElementById('mainChatFileInput').click()" style="padding:8px 10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:rgba(255,255,255,0.4);font-size:14px;cursor:pointer;flex-shrink:0;transition:all 0.15s;line-height:1;align-self:flex-end" title="Datei anhängen">📎</button>
                     <div style="flex:1;display:flex;flex-direction:column;min-height:0">
                         <textarea class="chat-input" id="chatInput" placeholder="Stelle mir eine Frage oder beschreibe was du brauchst..." rows="2" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}" oninput="autoResize(this)"></textarea>
@@ -2384,7 +2384,7 @@
                             <div class="chat-input-area" style="padding:12px 16px 16px">
                                 <div id="prjChatAttachments" style="display:none;padding:0 0 8px;display:flex;flex-wrap:wrap;gap:6px"></div>
                                 <div class="chat-input-wrap">
-                                    <input type="file" id="prjChatFileInput" style="display:none" accept=".pdf,.txt,.md,.csv,.json,.docx,.png,.jpg,.jpeg,.gif,.webp" onchange="prjChatFileSelected(this)" multiple>
+                                    <input type="file" id="prjChatFileInput" style="display:none" accept=".pdf,.txt,.md,.csv,.json,.docx,.ics,.png,.jpg,.jpeg,.gif,.webp" onchange="prjChatFileSelected(this)" multiple>
                                     <button onclick="document.getElementById('prjChatFileInput').click()" style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition);flex-shrink:0;color:var(--text-muted);font-size:16px" title="Datei anhängen">📎</button>
                                     <textarea class="chat-input" id="prjChatInput" placeholder="z.B. Erstelle eine Kontext-Analyse für dieses Projekt..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();prjChatSend()}" oninput="autoResize(this)"></textarea>
                                     <button class="chat-send-btn" onclick="prjChatSend()" id="prjChatSendBtn" title="Senden">
