@@ -8160,7 +8160,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             </div>`;
         }
 
-        // ── Universal Send ──
+        // ── Universal Send (SSE Streaming) ──
         async function sendBxCmd(message) {
             const input = document.getElementById('chatInput');
             const btn = document.getElementById('chatSendBtn');
@@ -8176,63 +8176,130 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             showTyping(bxCmdIntent ? `BEATRIX: ${intentLabels[bxCmdIntent]||'analysiert'}...` : 'BEATRIX erkennt Intent...');
 
             try {
-                const r = await fetch(`${API}/chat/intent`, {
+                const r = await fetch(`${API}/chat/intent/stream`, {
                     method:'POST',
                     headers:{...H(),'Content-Type':'application/json'},
                     body: JSON.stringify({
                         message, history: bxCmdHistory, current_draft: bxCmdDraft,
-                        intent: bxCmdIntent  // force intent if already in conversation
+                        intent: bxCmdIntent
                     })
                 });
-                const d = await r.json();
-                removeTyping();
 
-                if (!r.ok || !d.ok) {
-                    appendMessage('assistant', d.error || 'Fehler.');
+                if (!r.ok) {
+                    const err = await r.json().catch(()=>({}));
+                    removeTyping();
+                    appendMessage('assistant', err.detail || err.error || 'Fehler.');
                     btn.disabled = false; input.focus(); return;
                 }
 
-                // If redirect to KB (knowledge/general questions)
-                if (d.status === 'redirect_kb') {
-                    bxCmdMode = false;
-                    toggleBxCmd(); // deactivate
-                    document.getElementById('chatInput').value = message;
-                    sendChat(); // redirect to normal chat
-                    return;
-                }
+                const reader = r.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let streamingMsgEl = null;
+                let streamedText = '';
+                let finalData = null;
 
-                // Set intent for follow-up messages
-                const intent = d.intent || 'project';
-                bxCmdIntent = intent;
-                updateBxIndicator(intent);
+                while (true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, {stream: true});
 
-                // Update draft
-                if (d.data && Object.keys(d.data).length > 0) {
-                    bxCmdDraft = {...bxCmdDraft, ...d.data};
-                }
+                    while (buffer.includes('\n\n')) {
+                        const idx = buffer.indexOf('\n\n');
+                        const line = buffer.substring(0, idx);
+                        buffer = buffer.substring(idx + 2);
 
-                // Render appropriate card
-                const container = document.getElementById('chatMessages');
-                let cardHtml = '';
-                const hasData = d.data && Object.keys(d.data).length > 0;
+                        if (!line.startsWith('data: ')) continue;
+                        let evt;
+                        try { evt = JSON.parse(line.substring(6)); } catch { continue; }
 
-                if (hasData) {
-                    switch(intent) {
-                        case 'project': cardHtml = renderProjectCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
-                        case 'lead': cardHtml = renderLeadCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
-                        case 'model': cardHtml = renderModelCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
-                        case 'context': cardHtml = renderContextCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
+                        if (evt.type === 'intent') {
+                            removeTyping();
+                            // Handle redirect to KB
+                            if (evt.status === 'redirect_kb') {
+                                bxCmdMode = false;
+                                toggleBxCmd();
+                                document.getElementById('chatInput').value = message;
+                                sendChat();
+                                btn.disabled = false; return;
+                            }
+                            // Update intent indicator
+                            const intent = evt.intent || 'project';
+                            bxCmdIntent = intent;
+                            updateBxIndicator(intent);
+                            // Create streaming message container
+                            const container = document.getElementById('chatMessages');
+                            const bi = BX_INTENTS[intent] || {icon:'💡', color:'42,127,142'};
+                            container.insertAdjacentHTML('beforeend', `<div class="chat-msg assistant" id="bxStreamMsg">
+                                <div class="chat-msg-avatar" style="background:linear-gradient(135deg,rgba(${bi.color},0.8),rgba(${bi.color},0.4));font-size:12px">${bi.icon}</div>
+                                <div class="chat-msg-body"><div id="bxStreamText" style="font-size:13px;line-height:1.6;color:rgba(255,255,255,0.85)"><span class="typing-dots" style="color:rgba(255,255,255,0.3)">●●●</span></div></div>
+                            </div>`);
+                            streamingMsgEl = document.getElementById('bxStreamText');
+                            container.scrollTop = container.scrollHeight;
+                        }
+
+                        else if (evt.type === 'token' && streamingMsgEl) {
+                            streamedText += evt.text;
+                            streamingMsgEl.innerHTML = formatMessage(streamedText);
+                            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+                        }
+
+                        else if (evt.type === 'data') {
+                            finalData = evt;
+                        }
+
+                        else if (evt.type === 'error') {
+                            removeTyping();
+                            if (streamingMsgEl) streamingMsgEl.innerHTML = `<span style="color:#f87171">Fehler: ${evt.text}</span>`;
+                            else appendMessage('assistant', 'Fehler: ' + evt.text);
+                        }
                     }
                 }
-                const textHtml = (!cardHtml && d.message) ? formatMessage(d.message) : '';
-                const bi = BX_INTENTS[intent] || {icon:'💡', color:'42,127,142'};
 
-                container.insertAdjacentHTML('beforeend', `<div class="chat-msg assistant">
-                    <div class="chat-msg-avatar" style="background:linear-gradient(135deg,rgba(${bi.color},0.8),rgba(${bi.color},0.4));font-size:12px">${bi.icon}</div>
-                    <div class="chat-msg-body">${cardHtml}${textHtml}</div>
-                </div>`);
-                container.scrollTop = container.scrollHeight;
-                bxCmdHistory.push({role:'assistant', content: d.message || JSON.stringify(d.data)});
+                // ── Process final data ──
+                if (finalData) {
+                    const d = finalData;
+                    const intent = d.intent || bxCmdIntent || 'project';
+
+                    // Update draft
+                    if (d.data && Object.keys(d.data).length > 0) {
+                        bxCmdDraft = {...bxCmdDraft, ...d.data};
+                    }
+
+                    // Render structured card
+                    let cardHtml = '';
+                    const hasData = d.data && Object.keys(d.data).length > 0;
+                    if (hasData) {
+                        switch(intent) {
+                            case 'project': cardHtml = renderProjectCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
+                            case 'lead': cardHtml = renderLeadCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
+                            case 'model': cardHtml = renderModelCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
+                            case 'context': cardHtml = renderContextCard(bxCmdDraft, d.status, d.missing, d.confidence, d.message); break;
+                        }
+                    }
+
+                    // Replace streaming div with final card (or keep text if no card)
+                    const streamDiv = document.getElementById('bxStreamMsg');
+                    if (streamDiv) {
+                        if (cardHtml) {
+                            const bi = BX_INTENTS[intent] || {icon:'💡', color:'42,127,142'};
+                            streamDiv.querySelector('.chat-msg-body').innerHTML = cardHtml;
+                        } else if (!streamedText && d.message) {
+                            streamDiv.querySelector('.chat-msg-body').innerHTML = formatMessage(d.message);
+                        }
+                        // If we already streamed text AND have a card, show both
+                        else if (streamedText && cardHtml) {
+                            const bi = BX_INTENTS[intent] || {icon:'💡', color:'42,127,142'};
+                            streamDiv.querySelector('.chat-msg-body').innerHTML = cardHtml;
+                        }
+                    }
+
+                    bxCmdHistory.push({role:'assistant', content: d.message || streamedText || JSON.stringify(d.data)});
+                    document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+                } else if (streamedText) {
+                    // No structured data, just text
+                    bxCmdHistory.push({role:'assistant', content: streamedText});
+                }
 
             } catch(e) {
                 removeTyping();
