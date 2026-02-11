@@ -8071,7 +8071,16 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             if (p.description) f += field('Beschreibung', p.description);
             f += field('Start', p.start_date);
             if (p.end_date) f += field('Ende', p.end_date);
-            if (p.budget_chf) f += field('Budget', `${Number(p.budget_chf).toLocaleString('de-CH')} CHF`);
+            if (p.budget_chf || p.budget) {
+                const cur = p.currency || 'CHF';
+                const val = p.budget || p.budget_chf;
+                const valChf = p.budget_chf || val;
+                if (cur !== 'CHF' && val && valChf) {
+                    f += field('Budget', `${Number(val).toLocaleString('de-CH')} ${cur} <span style="color:rgba(255,255,255,0.3);font-size:10px">(≈ CHF ${Number(valChf).toLocaleString('de-CH')})</span>`);
+                } else {
+                    f += field('Budget', `CHF ${Number(valChf).toLocaleString('de-CH')}`);
+                }
+            }
             f += field('Owner', p.fa_owner);
             if (p.fa_team?.length) f += field('Team', p.fa_team.join(', '));
             return bxCard('📋','Projekt', rgb, isComplete, f, missing, message, confidence, isComplete ? `<button onclick="bxConfirmProject()" style="${bxBtnConfirm}">✓ Projekt eröffnen → GitHub</button><button onclick="bxRefine()" style="${bxBtnRefine}">✏ Anpassen</button>` : '');
@@ -8092,7 +8101,17 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             f += field('Phase', stageLabels[d.stage]||d.stage);
             f += field('Kontakt', d.contact_person);
             if (d.contact_email) f += field('E-Mail', d.contact_email);
-            if (d.estimated_value_chf) f += field('Wert', `${Number(d.estimated_value_chf).toLocaleString('de-CH')} CHF`);
+            // Currency-aware value display
+            if (d.estimated_value || d.estimated_value_chf) {
+                const cur = d.currency || 'CHF';
+                const val = d.estimated_value || d.estimated_value_chf;
+                const valChf = d.estimated_value_chf || val;
+                if (cur !== 'CHF' && val && valChf) {
+                    f += field('Wert', `${Number(val).toLocaleString('de-CH')} ${cur} <span style="color:rgba(255,255,255,0.3);font-size:10px">(≈ CHF ${Number(valChf).toLocaleString('de-CH')})</span>`);
+                } else {
+                    f += field('Wert', `CHF ${Number(valChf).toLocaleString('de-CH')}`);
+                }
+            }
             if (d.probability) f += field('Wahrsch.', `${d.probability}%`);
             f += field('Next Step', d.next_action);
             if (d.next_action_date) f += field('Datum', d.next_action_date);
@@ -8337,7 +8356,8 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         customer_code: d.customer_code, name: d.name,
                         type: d.type||'beratung', project_category: d.project_category||'mandat',
                         description: d.description||'', start_date: d.start_date||new Date().toISOString().slice(0,10),
-                        end_date: d.end_date||'', budget_chf: d.budget_chf||null,
+                        end_date: d.end_date||'', budget_chf: d.budget_chf||d.budget||null,
+                        budget: d.budget||d.budget_chf||null, currency: d.currency||'CHF',
                         billing_type: d.billing_type||'fixed', fa_owner: d.fa_owner||'GF',
                         fa_team: d.fa_team||[]
                     })
@@ -8364,9 +8384,11 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     contact: d.contact_person || '',
                     email: d.contact_email || '',
                     stage: d.stage || 'initial_contact',
-                    value: d.estimated_value_chf || 0,
+                    value: d.estimated_value_chf || d.estimated_value || 0,
+                    currency: d.currency || 'CHF',
+                    value_original: d.estimated_value || d.estimated_value_chf || 0,
                     source: d.source || 'inbound',
-                    notes: [d.opportunity, d.notes, d.next_action ? `Next: ${d.next_action}` : ''].filter(Boolean).join(' | ')
+                    notes: [d.opportunity, d.notes, d.next_action ? `Next: ${d.next_action}` : '', d.currency && d.currency !== 'CHF' ? `Originalwährung: ${d.currency}` : ''].filter(Boolean).join(' | ')
                 };
                 const r = await fetch(`${API}/leads`, {
                     method:'POST', headers:{...H(),'Content-Type':'application/json'},
