@@ -4916,7 +4916,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         // Keep legacy ctxLoad as alias
-        function ctxLoad() { caInit(); }
+        async function ctxLoad() { caInit(); }
 
         // ── CRM ──────────────────────────────────────────
         let crmDeals = [];
@@ -5055,7 +5055,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             document.getElementById('crmTable').innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid rgba(255,255,255,0.08)"><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;color:rgba(255,255,255,0.25);text-transform:uppercase">Lead</th><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;color:rgba(255,255,255,0.25);text-transform:uppercase">Firma</th><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;color:rgba(255,255,255,0.25);text-transform:uppercase">Stage</th><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;color:rgba(255,255,255,0.25);text-transform:uppercase">Wert</th><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;color:rgba(255,255,255,0.25);text-transform:uppercase">Owner</th><th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;color:rgba(255,255,255,0.25);text-transform:uppercase">Erstellt</th></tr></thead><tbody>${rows}</tbody></table>`;
         }
 
-        function crmShowDealForm() { const f=document.getElementById('crmDealForm'); f.style.display=f.style.display==='none'?'block':'none'; }
+        async function crmShowDealForm() { const f=document.getElementById('crmDealForm'); f.style.display=f.style.display==='none'?'block':'none'; }
 
         async function crmSaveDeal() {
             const title = document.getElementById('crmDealTitle').value.trim();
@@ -7469,7 +7469,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             document.getElementById('pwMsg').className='modal-msg';
             document.getElementById('pwCurrent').focus();
         }
-        function closePwModal() { document.getElementById('pwModal').classList.remove('visible'); }
+        async function closePwModal() { document.getElementById('pwModal').classList.remove('visible'); }
 
         async function changePassword() {
             const cur = document.getElementById('pwCurrent').value;
@@ -10171,11 +10171,11 @@ Schreibe detailliert, wissenschaftlich fundiert und praxisorientiert. Nutze Tabe
     });
     fbCanvas.addEventListener('pointerleave', () => { fbState.drawing = false; });
 
-    function fbSetTool(t) { fbState.tool = t; document.querySelectorAll('.fb-tool').forEach(el => el.classList.remove('active')); document.getElementById('fbTool'+t.charAt(0).toUpperCase()+t.slice(1))?.classList.add('active'); }
-    function fbSetColor(c) { fbState.color = c; document.querySelectorAll('.fb-color').forEach(el => el.classList.toggle('active', el.dataset.color===c)); }
-    function fbSetType(t) { fbState.type = t; document.querySelectorAll('.fb-type').forEach(el => el.classList.remove('active')); document.getElementById('fbType'+t.charAt(0).toUpperCase()+t.slice(1))?.classList.add('active'); }
-    function fbUndo() { if (fbState.history.length) { fbState.history.pop(); fbRedraw(); } }
-    function fbClose() { document.getElementById('fbOverlay').classList.remove('active'); }
+    async function fbSetTool(t) { fbState.tool = t; document.querySelectorAll('.fb-tool').forEach(el => el.classList.remove('active')); document.getElementById('fbTool'+t.charAt(0).toUpperCase()+t.slice(1))?.classList.add('active'); }
+    async function fbSetColor(c) { fbState.color = c; document.querySelectorAll('.fb-color').forEach(el => el.classList.toggle('active', el.dataset.color===c)); }
+    async function fbSetType(t) { fbState.type = t; document.querySelectorAll('.fb-type').forEach(el => el.classList.remove('active')); document.getElementById('fbType'+t.charAt(0).toUpperCase()+t.slice(1))?.classList.add('active'); }
+    async function fbUndo() { if (fbState.history.length) { fbState.history.pop(); fbRedraw(); } }
+    async function fbClose() { document.getElementById('fbOverlay').classList.remove('active'); }
 
     async function fbSend() {
         const comment = document.getElementById('fbComment').value.trim();
