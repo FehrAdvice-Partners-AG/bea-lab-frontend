@@ -1867,8 +1867,8 @@
 
             <!-- KPI Cards -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px" id="crmKpis">
-                <div style="padding:14px;background:var(--navy-card);border:1px solid var(--border);border-radius:12px">
-                    <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Aktive Leads</div>
+                <div onclick="crmShowLeadTimeline()" style="padding:14px;background:var(--navy-card);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:border-color 0.2s" onmouseover="this.style.borderColor='rgba(255,255,255,0.15)'" onmouseout="this.style.borderColor='var(--border)'">
+                    <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px">Aktive Leads ↗</div>
                     <div id="crmKpiActive" style="font-size:24px;font-weight:700;color:white;margin:4px 0">–</div>
                 </div>
                 <div style="padding:14px;background:var(--navy-card);border:1px solid var(--border);border-radius:12px">
@@ -5033,6 +5033,89 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             document.getElementById('crmKpiWon').textContent = s.won_deals || 0;
             document.getElementById('crmKpiConv').textContent = (s.conversion_rate || 0) + '%';
             document.getElementById('crmKpiCompanies').textContent = s.companies || 0;
+        }
+
+        function crmShowLeadTimeline() {
+            if (!crmDeals || !crmDeals.length) { showToast('Keine Leads geladen', 'error'); return; }
+
+            const now = new Date();
+            const startOfWeek = d => { const dd = new Date(d); dd.setHours(0,0,0,0); dd.setDate(dd.getDate() - dd.getDay() + 1); return dd; };
+            const thisWeekStart = startOfWeek(now);
+            const lastWeekStart = new Date(thisWeekStart); lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+            const twoWeeksStart = new Date(thisWeekStart); twoWeeksStart.setDate(twoWeeksStart.getDate() - 14);
+
+            // Active deals (not won/lost)
+            const active = crmDeals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
+
+            const groups = [
+                { label: '🟢 Diese Woche', color: '#34d399', deals: [] },
+                { label: '🟡 Letzte Woche', color: '#fbbf24', deals: [] },
+                { label: '🟠 Vor 2 Wochen', color: '#f97316', deals: [] },
+                { label: '⚪ Älter', color: 'rgba(255,255,255,0.3)', deals: [] }
+            ];
+
+            active.forEach(d => {
+                const created = d.created_at ? new Date(d.created_at) : new Date(0);
+                if (created >= thisWeekStart) groups[0].deals.push(d);
+                else if (created >= lastWeekStart) groups[1].deals.push(d);
+                else if (created >= twoWeeksStart) groups[2].deals.push(d);
+                else groups[3].deals.push(d);
+            });
+
+            const stageMap = Object.fromEntries((typeof CRM_STAGES !== 'undefined' ? CRM_STAGES : []).map(s => [s.id, s]));
+
+            const renderGroup = (g) => {
+                if (!g.deals.length) return '';
+                const sorted = g.deals.sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0));
+                const rows = sorted.map(d => {
+                    const s = stageMap[d.stage] || {};
+                    const val = d.value ? new Intl.NumberFormat('de-CH').format(d.value) + ' CHF' : '';
+                    const date = d.created_at ? new Date(d.created_at).toLocaleDateString('de-CH', {day:'2-digit', month:'2-digit'}) : '';
+                    const owner = (d.owner||'').replace('OWN-','');
+                    return `<div onclick="crmOpenDeal('${d.id}');document.getElementById('crmTimelineModal')?.remove()" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy-card);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color 0.15s" onmouseover="this.style.borderColor='rgba(255,255,255,0.15)'" onmouseout="this.style.borderColor='var(--border)'">
+                        <div style="width:6px;height:6px;border-radius:50%;background:${s.color||'#94a3b8'};flex-shrink:0"></div>
+                        <div style="flex:1;min-width:0">
+                            <div style="font-size:13px;font-weight:500;color:white;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.title||'–'}</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.3)">${d.company_name||''} ${d.contact_name ? '· '+d.contact_name : ''}</div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0">
+                            <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:${s.color||'#94a3b8'}15;color:${s.color||'#94a3b8'};border:1px solid ${s.color||'#94a3b8'}25">${s.icon||''} ${s.label||d.stage}</span>
+                            ${val ? `<div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">${val}</div>` : ''}
+                        </div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.2);flex-shrink:0;min-width:36px;text-align:right">${date}<br>${owner ? `<span style="font-size:9px">${owner}</span>` : ''}</div>
+                    </div>`;
+                }).join('');
+                return `<div style="margin-bottom:20px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                        <div style="font-size:13px;font-weight:600;color:${g.color}">${g.label}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.3)">${g.deals.length} Lead${g.deals.length!==1?'s':''}</div>
+                        <div style="flex:1;height:1px;background:rgba(255,255,255,0.04)"></div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px">${rows}</div>
+                </div>`;
+            };
+
+            const totalActive = active.length;
+            const modal = document.createElement('div');
+            modal.id = 'crmTimelineModal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+            modal.innerHTML = `<div style="background:var(--navy-mid);border:1px solid var(--border);border-radius:16px;width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden">
+                <div style="display:flex;align-items:center;gap:12px;padding:20px 24px 16px;border-bottom:1px solid var(--border)">
+                    <div style="font-size:22px;font-weight:700;color:white;flex:1">📊 ${totalActive} Aktive Leads</div>
+                    <div style="display:flex;gap:12px;font-size:11px;color:rgba(255,255,255,0.3)">
+                        <span style="color:#34d399">● ${groups[0].deals.length} diese Woche</span>
+                        <span style="color:#fbbf24">● ${groups[1].deals.length} letzte Woche</span>
+                        <span style="color:#f97316">● ${groups[2].deals.length} vor 2 Wo.</span>
+                    </div>
+                    <span onclick="this.closest('#crmTimelineModal').remove()" style="cursor:pointer;color:rgba(255,255,255,0.3);font-size:20px;padding:4px">✕</span>
+                </div>
+                <div style="flex:1;overflow-y:auto;padding:20px 24px">
+                    ${groups.map(g => renderGroup(g)).join('')}
+                    ${!active.length ? '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">Keine aktiven Leads</div>' : ''}
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
         }
 
         function crmSetView(v) {
