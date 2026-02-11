@@ -1937,6 +1937,7 @@
                     <button class="fb-tool" id="crmViewTable" onclick="crmSetView('table')" style="border:none;border-radius:0;font-size:12px">☰ Tabelle</button>
                 </div>
                 <div style="flex:1"></div>
+                <input type="text" id="crmSearchInput" placeholder="🔍 Lead suchen..." oninput="crmSearchFilter(this.value)" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;color:white;width:200px;outline:none" />
                 <button class="mb-btn mb-btn-primary" onclick="crmShowDealForm()" style="font-size:12px;padding:6px 14px">+ Neuer Lead</button>
                 <button class="mb-btn mb-btn-back" onclick="crmSyncGithub()" style="font-size:12px;padding:6px 14px" id="crmSyncBtn">🔄 Synchronisieren</button>
             </div>
@@ -5215,9 +5216,17 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             if (crmView === 'kanban') crmRenderKanban(); else crmRenderTable();
         }
 
+        let crmSearchTerm = '';
+        function crmSearchFilter(val) { crmSearchTerm = val.toLowerCase().trim(); crmRenderView(); }
+
         function crmGetFilteredDeals() {
-            if (!crmCompanyFilter) return crmDeals;
-            return crmDeals.filter(d => d.company_id === crmCompanyFilter || d.company === crmCompanyFilter);
+            let deals = crmDeals;
+            if (crmCompanyFilter) deals = deals.filter(d => d.company_id === crmCompanyFilter || d.company === crmCompanyFilter);
+            if (crmSearchTerm) deals = deals.filter(d => {
+                const hay = [d.title, d.company_name, d.contact_name, d.opportunity, d.next_action, d.owner, d.notes, d.id].filter(Boolean).join(' ').toLowerCase();
+                return hay.includes(crmSearchTerm);
+            });
+            return deals;
         }
 
         function crmClearFilter() { crmCompanyFilter = null; crmRenderView(); }
@@ -5276,7 +5285,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
         function crmRenderTable() {
             const deals = crmGetFilteredDeals();
-            if (!deals.length) { document.getElementById('crmTable').innerHTML = `<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.4)">${crmCompanyFilter ? 'Keine Leads für diese Firma.' : 'Keine Leads. Klicke «Synchronisieren» um Leads zu importieren.'} ${crmCompanyFilter ? '<br><a style="color:var(--accent);cursor:pointer" onclick="crmClearFilter()">Filter aufheben</a>' : ''}</div>`; return; }
+            if (!deals.length) { document.getElementById('crmTable').innerHTML = `<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.4)">${crmSearchTerm ? 'Keine Leads für «' + crmSearchTerm + '» gefunden.' : crmCompanyFilter ? 'Keine Leads für diese Firma.' : 'Keine Leads. Klicke «Synchronisieren» um Leads zu importieren.'} ${crmCompanyFilter || crmSearchTerm ? '<br><a style="color:var(--accent);cursor:pointer" onclick="crmClearFilter();document.getElementById(\'crmSearchInput\').value=\'\';crmSearchTerm=\'\';">Filter aufheben</a>' : ''}</div>`; return; }
             const stageMap = Object.fromEntries(CRM_STAGES.map(s => [s.id, s]));
             const rows = deals.map(d => {
                 const s = stageMap[d.stage] || {};
