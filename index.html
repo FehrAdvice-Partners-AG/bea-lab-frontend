@@ -699,7 +699,7 @@
                 <h2>Frag <span>BEATRIX</span></h2>
                 <p>Deine Fragen zu Behavioral Economics, BCM und der Knowledge Base</p>
                 <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:6px">
-                    <span id="chatSessionBadge" style="font-size:10px;color:var(--text-muted);font-family:monospace;background:rgba(255,255,255,0.04);padding:2px 8px;border-radius:4px;cursor:pointer" title="Session-ID kopieren" onclick="navigator.clipboard.writeText(chatSessionId);this.textContent='✓ kopiert';setTimeout(()=>updateSessionBadge(),1500)"></span>
+                    <span id="chatSessionBadge" style="font-size:10px;color:var(--text-muted);font-family:monospace;background:rgba(255,255,255,0.04);padding:2px 8px;border-radius:4px;cursor:pointer" title="Session-Verlauf anzeigen" onclick="toggleSessionHistory()"></span>
                     <span id="chatSessionType" style="font-size:11px;padding:2px 10px;border-radius:12px;display:none;font-weight:600;letter-spacing:0.02em;cursor:pointer;position:relative" title="Klick zum Wechseln" onclick="showSessionTypePicker(this)"></span>
                     <button onclick="startNewChatSession()" style="font-size:11px;padding:3px 10px;background:rgba(42,127,142,0.1);border:1px solid rgba(42,127,142,0.25);border-radius:6px;color:var(--accent-light);cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(42,127,142,0.2)'" onmouseleave="this.style.background='rgba(42,127,142,0.1)'">+ Neuer Chat</button>
                     <button id="btnCloseSession" onclick="closeCurrentSession()" style="font-size:11px;padding:3px 10px;background:rgba(220,80,80,0.08);border:1px solid rgba(220,80,80,0.2);border-radius:6px;color:rgba(220,130,130,0.9);cursor:pointer;transition:all 0.15s;display:none" onmouseenter="this.style.background='rgba(220,80,80,0.18)'" onmouseleave="this.style.background='rgba(220,80,80,0.08)'">✕ Session schliessen</button>
@@ -8911,7 +8911,127 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const msgs = document.querySelectorAll('#chatMessages .chat-msg.user, #chatMessages .chat-msg.assistant');
             btn.style.display = msgs.length > 0 ? 'inline-block' : 'none';
         }
+
+        // ── SESSION HISTORY ──
+        let _sessionHistoryOpen = false;
+        async function toggleSessionHistory() {
+            const overlay = document.getElementById('sessionHistoryOverlay');
+            const drawer = document.getElementById('sessionHistoryDrawer');
+            if (!overlay || !drawer) return;
+            _sessionHistoryOpen = !_sessionHistoryOpen;
+            if (_sessionHistoryOpen) {
+                overlay.style.display = 'block';
+                setTimeout(() => drawer.style.transform = 'translateX(0)', 10);
+                loadSessionHistory();
+            } else {
+                drawer.style.transform = 'translateX(100%)';
+                setTimeout(() => overlay.style.display = 'none', 260);
+            }
+        }
+        async function loadSessionHistory() {
+            const list = document.getElementById('sessionHistoryList');
+            const count = document.getElementById('sessionHistoryCount');
+            if (!list) return;
+            list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">⏳ Lade Sessions...</div>';
+            try {
+                const r = await fetch(`${API}/api/chat/sessions`, {headers: H()});
+                if (!r.ok) throw new Error('Fehler');
+                const sessions = await r.json();
+                if (count) count.textContent = `${sessions.length} Sessions`;
+                if (!sessions.length) {
+                    list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">Noch keine Sessions vorhanden</div>';
+                    return;
+                }
+                list.innerHTML = sessions.map(s => {
+                    const isCurrent = s.session_id === chatSessionId;
+                    const isClosed = s.is_closed;
+                    const dt = new Date(s.started_at);
+                    const dateStr = dt.toLocaleDateString('de-CH', {day:'2-digit',month:'2-digit',year:'2-digit'});
+                    const timeStr = dt.toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'});
+                    const title = s.title || s.session_id;
+                    const statusBadge = isCurrent
+                        ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(42,200,120,0.15);color:rgba(42,200,120,0.9);border:1px solid rgba(42,200,120,0.25)">aktiv</span>'
+                        : isClosed
+                            ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(220,80,80,0.1);color:rgba(220,130,130,0.8);border:1px solid rgba(220,80,80,0.2)">geschlossen</span>'
+                            : '';
+                    return `<div onclick="openSessionDetail('${s.session_id}')" style="padding:12px 14px;border:1px solid ${isCurrent ? 'rgba(42,127,142,0.3)' : 'var(--border,#1e2d4a)'};border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.15s;background:${isCurrent ? 'rgba(42,127,142,0.06)' : 'rgba(255,255,255,0.02)'}" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='${isCurrent ? 'rgba(42,127,142,0.06)' : 'rgba(255,255,255,0.02)'}'">`
+                        + `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">`
+                        + `<span style="font-size:13px;font-weight:600;color:white;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.session_icon || '💬'} ${title.length > 50 ? title.slice(0,47) + '...' : title}</span>`
+                        + `${statusBadge}`
+                        + `</div>`
+                        + `<div style="display:flex;gap:12px;margin-top:5px;font-size:11px;color:var(--text-muted,#6b7fa3)">`
+                        + `<span>📅 ${dateStr} ${timeStr}</span>`
+                        + `<span>💬 ${s.messages} Nachrichten</span>`
+                        + (s.duration_minutes > 0 ? `<span>⏱ ${s.duration_minutes}min</span>` : '')
+                        + `</div>`
+                        + (s.summary ? `<div style="margin-top:5px;font-size:11px;color:var(--text-secondary,#8899b8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.summary.slice(0,80)}</div>` : '')
+                        + `</div>`;
+                }).join('');
+            } catch(e) {
+                list.innerHTML = `<div style="text-align:center;padding:30px;color:rgba(220,80,80,0.8)">❌ ${e.message}</div>`;
+            }
+        }
+        async function openSessionDetail(sid) {
+            const modal = document.getElementById('sessionDetailModal');
+            const titleEl = document.getElementById('sessionDetailTitle');
+            const metaEl = document.getElementById('sessionDetailMeta');
+            const msgsEl = document.getElementById('sessionDetailMessages');
+            if (!modal || !msgsEl) return;
+            modal.style.display = 'block';
+            msgsEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">⏳ Lade Nachrichten...</div>';
+            try {
+                const r = await fetch(`${API}/api/chat/session/${sid}/messages`, {headers: H()});
+                if (!r.ok) throw new Error('Fehler beim Laden');
+                const data = await r.json();
+                if (titleEl) titleEl.textContent = data.meta?.title || sid;
+                if (metaEl) {
+                    const parts = [];
+                    if (data.meta?.created_at) parts.push('📅 ' + new Date(data.meta.created_at).toLocaleString('de-CH'));
+                    parts.push(`💬 ${data.messages.length} Nachrichten`);
+                    if (data.meta?.duration_min > 0) parts.push(`⏱ ${data.meta.duration_min}min`);
+                    if (data.meta?.type === 'closed') parts.push('🔒 Geschlossen');
+                    metaEl.textContent = parts.join(' · ');
+                }
+                if (!data.messages.length) {
+                    msgsEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">Keine Nachrichten</div>';
+                    return;
+                }
+                msgsEl.innerHTML = data.messages.map(m => {
+                    const isUser = m.role === 'user';
+                    const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'}) : '';
+                    return `<div style="margin-bottom:12px;display:flex;gap:10px;${isUser ? 'flex-direction:row-reverse' : ''}">`
+                        + `<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;${isUser ? 'background:rgba(91,138,245,0.12);color:rgba(91,138,245,0.8);border:1px solid rgba(91,138,245,0.2)' : 'background:rgba(42,127,142,0.1);color:var(--accent-light);border:1px solid var(--border)'}">${isUser ? 'GF' : 'B'}</div>`
+                        + `<div style="max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;${isUser ? 'background:rgba(91,138,245,0.08);border:1px solid rgba(91,138,245,0.15);color:rgba(200,215,245,0.9)' : 'background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--text-secondary)'}">`
+                        + `<div>${formatMessage(m.content)}</div>`
+                        + (time ? `<div style="text-align:right;font-size:9px;color:var(--text-muted);margin-top:4px">${time}</div>` : '')
+                        + `</div></div>`;
+                }).join('');
+            } catch(e) {
+                msgsEl.innerHTML = `<div style="text-align:center;padding:30px;color:rgba(220,80,80,0.8)">❌ ${e.message}</div>`;
+            }
+        }
+        function closeSessionDetail() {
+            const modal = document.getElementById('sessionDetailModal');
+            if (modal) modal.style.display = 'none';
+        }
         function showSessionTypePicker(anchor) {
+            // Remove existing picker
+            const old = document.getElementById('sessionTypePicker');
+            if (old) { old.remove(); return; }
+            const types = Object.entries(SESSION_TYPES).filter(([k]) => k !== 'general');
+            let html = types.map(([k, v]) =>
+                `<div onclick="switchSessionType('${k}')" style="padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;transition:background 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.08)'" onmouseleave="this.style.background='transparent'"><span style="font-size:14px">${v.icon}</span><span style="font-size:12px;color:rgba(${v.color},0.9)">${v.label}</span></div>`
+            ).join('');
+            const picker = document.createElement('div');
+            picker.id = 'sessionTypePicker';
+            picker.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,0.3)';
+            picker.innerHTML = html;
+            anchor.parentElement.style.position = 'relative';
+            anchor.parentElement.appendChild(picker);
+            setTimeout(() => document.addEventListener('click', function rem(e) {
+                if (!picker.contains(e.target)) { picker.remove(); document.removeEventListener('click', rem); }
+            }), 10);
+        }
             // Remove existing picker
             const old = document.getElementById('sessionTypePicker');
             if (old) { old.remove(); return; }
@@ -11489,5 +11609,31 @@ Schreibe detailliert, wissenschaftlich fundiert und praxisorientiert. Nutze Tabe
         btn.disabled = false; btn.textContent = 'Senden ➤';
     }
     </script>
+    <!-- ═══ SESSION HISTORY DRAWER ═══ -->
+    <div id="sessionHistoryOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;transition:opacity 0.2s" onclick="if(event.target===this)toggleSessionHistory()">
+        <div id="sessionHistoryDrawer" style="position:absolute;right:0;top:0;bottom:0;width:min(420px,90vw);background:var(--surface,#0f1729);border-left:1px solid var(--border,#1e2d4a);display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.25s ease;overflow:hidden">
+            <div style="padding:16px 20px;border-bottom:1px solid var(--border,#1e2d4a);display:flex;justify-content:space-between;align-items:center">
+                <div>
+                    <h3 style="margin:0;font-size:16px;color:white">📋 Session-Verlauf</h3>
+                    <p style="margin:2px 0 0;font-size:11px;color:var(--text-muted,#6b7fa3)" id="sessionHistoryCount"></p>
+                </div>
+                <button onclick="toggleSessionHistory()" style="background:none;border:none;color:var(--text-muted,#6b7fa3);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
+            </div>
+            <div id="sessionHistoryList" style="flex:1;overflow-y:auto;padding:12px"></div>
+        </div>
+    </div>
+    <!-- Session Detail Modal -->
+    <div id="sessionDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9100;overflow-y:auto" onclick="if(event.target===this)closeSessionDetail()">
+        <div style="max-width:700px;margin:40px auto;background:var(--surface,#0f1729);border:1px solid var(--border,#1e2d4a);border-radius:14px;overflow:hidden">
+            <div style="padding:16px 20px;border-bottom:1px solid var(--border,#1e2d4a);display:flex;justify-content:space-between;align-items:center">
+                <div>
+                    <h3 style="margin:0;font-size:15px;color:white" id="sessionDetailTitle">Session</h3>
+                    <p style="margin:2px 0 0;font-size:11px;color:var(--text-muted,#6b7fa3)" id="sessionDetailMeta"></p>
+                </div>
+                <button onclick="closeSessionDetail()" style="background:none;border:none;color:var(--text-muted,#6b7fa3);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
+            </div>
+            <div id="sessionDetailMessages" style="padding:16px 20px;max-height:70vh;overflow-y:auto"></div>
+        </div>
+    </div>
 </body>
 </html>
