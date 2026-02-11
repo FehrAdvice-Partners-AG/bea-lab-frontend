@@ -8883,7 +8883,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
         async function closeCurrentSession() {
             if (!chatSessionId) return;
-            const msgs = document.querySelectorAll('#chatMessages .user-msg, #chatMessages .bot-msg');
+            const msgs = document.querySelectorAll('#chatMessages .chat-msg.user, #chatMessages .chat-msg.assistant');
             if (msgs.length === 0) { showToast('Keine aktive Session zum Schliessen', 'info'); return; }
             // Confirm
             if (!confirm('Session schliessen? Der Chat-Verlauf wird gelöscht und eine neue Session gestartet.')) return;
@@ -8908,7 +8908,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         function updateCloseSessionBtn() {
             const btn = document.getElementById('btnCloseSession');
             if (!btn) return;
-            const msgs = document.querySelectorAll('#chatMessages .user-msg, #chatMessages .bot-msg');
+            const msgs = document.querySelectorAll('#chatMessages .chat-msg.user, #chatMessages .chat-msg.assistant');
             btn.style.display = msgs.length > 0 ? 'inline-block' : 'none';
         }
         function showSessionTypePicker(anchor) {
