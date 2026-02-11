@@ -3496,12 +3496,19 @@
                             f.status='error';renderFileList();continue;
                         }
                         if(!r.ok)throw new Error(await r.text());
+                        const result = await r.json();
                         f.status='success';f.progress=100;
+                        f._result = result;
                     }catch(e){f.status='error';showToast(`${f.file.name}: ${e.message}`,'error');}
                     renderFileList();
                 }
                 const ok=files.filter(f=>f.status==='success').length;
-                if(ok)showToast(`${ok} Datei${ok>1?'en':''} hochgeladen`,'success');
+                if(ok){
+                    const lastOk = files.filter(f=>f.status==='success').pop();
+                    const res = lastOk?._result || {};
+                    const isPaper = res.github_url || (res.status && res.status.includes('github'));
+                    showUploadProgress(res.title || lastOk?.file?.name || 'Dokument', isPaper, res, ok);
+                }
             } else {
                 const title=document.getElementById('textTitle').value.trim(),content=document.getElementById('textContent').value.trim();
                 if(!content){showToast('Bitte Text eingeben','error');return;}
@@ -3516,7 +3523,9 @@
                         return;
                     }
                     if(!r.ok)throw new Error(await r.text());
-                    showToast('Text gespeichert','success');
+                    const result = await r.json();
+                    const isPaper = result.github_url || (result.status && result.status.includes('github'));
+                    showUploadProgress(result.title || title || 'Dokument', isPaper, result);
                     document.getElementById('textTitle').value='';document.getElementById('textContent').value='';
                     tags=[];renderTags();lastAnalyzedLength=0;
                     document.getElementById('textAnalysisPreview').style.display='none';
@@ -3607,6 +3616,83 @@
         function closeDuplicateModal() {
             const m = document.getElementById('duplicateModal');
             if (m) m.remove();
+        }
+
+        function showUploadProgress(title, isPaper, result, fileCount) {
+            const old = document.getElementById('uploadProgressModal');
+            if (old) old.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'uploadProgressModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);animation:fadeIn 0.2s ease';
+
+            const steps = isPaper ? [
+                { icon: '📄', text: 'Dokument wird analysiert...', pct: 15 },
+                { icon: '🔬', text: 'Wissenschaftliche Signale erkannt...', pct: 30 },
+                { icon: '🧠', text: 'Inhalte werden indexiert...', pct: 50 },
+                { icon: '📚', text: 'Integration in die BEA-Wissensdatenbank...', pct: 70 },
+                { icon: '🔗', text: 'Paper wird auf GitHub archiviert...', pct: 85 },
+                { icon: '✅', text: 'Erfolgreich integriert!', pct: 100 }
+            ] : [
+                { icon: '📄', text: 'Dokument wird analysiert...', pct: 20 },
+                { icon: '🧠', text: 'Inhalte werden indexiert...', pct: 50 },
+                { icon: '📚', text: 'Integration in die BEA-Wissensdatenbank...', pct: 80 },
+                { icon: '✅', text: 'Erfolgreich gespeichert!', pct: 100 }
+            ];
+
+            const countLabel = fileCount > 1 ? `${fileCount} Dateien` : '';
+
+            modal.innerHTML = `
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:460px;width:90vw;padding:32px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:slideUp 0.25s ease;text-align:center">
+                    <div id="upProgressIcon" style="font-size:36px;margin-bottom:16px;transition:all 0.3s ease">📄</div>
+                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:6px;line-height:1.4" id="upProgressTitle">${isPaper ? '📚 Wissenschaftliche Arbeit erkannt' : '📄 Dokument wird verarbeitet'}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;max-width:360px;margin-left:auto;margin-right:auto" id="upProgressSubtitle">
+                        ${title.length > 60 ? title.substring(0,57)+'…' : title}
+                        ${countLabel ? `<span style="opacity:0.5"> · ${countLabel}</span>` : ''}
+                    </div>
+                    <!-- Progress bar -->
+                    <div style="background:rgba(255,255,255,0.06);border-radius:8px;height:6px;overflow:hidden;margin-bottom:12px;position:relative">
+                        <div id="upProgressBar" style="height:100%;border-radius:8px;width:0%;transition:width 0.6s cubic-bezier(0.4,0,0.2,1);background:linear-gradient(90deg,rgba(99,102,241,0.8),rgba(52,211,153,0.8))"></div>
+                    </div>
+                    <div id="upProgressStep" style="font-size:12px;color:var(--text-secondary);min-height:18px;transition:opacity 0.2s">Dokument wird analysiert...</div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Animate through steps
+            const totalDuration = isPaper ? 12000 : 8000;
+            const stepDelay = totalDuration / steps.length;
+
+            steps.forEach((step, i) => {
+                setTimeout(() => {
+                    const bar = document.getElementById('upProgressBar');
+                    const stepEl = document.getElementById('upProgressStep');
+                    const iconEl = document.getElementById('upProgressIcon');
+                    const titleEl = document.getElementById('upProgressTitle');
+                    if (!bar) return;
+
+                    bar.style.width = step.pct + '%';
+                    if (stepEl) { stepEl.style.opacity = '0'; setTimeout(() => { stepEl.textContent = step.text; stepEl.style.opacity = '1'; }, 200); }
+                    if (iconEl) iconEl.textContent = step.icon;
+
+                    // Final step: show success state
+                    if (i === steps.length - 1) {
+                        bar.style.background = 'linear-gradient(90deg,rgba(52,211,153,0.9),rgba(52,211,153,0.7))';
+                        if (titleEl) titleEl.innerHTML = '✅ Upload erfolgreich — Danke!';
+                        setTimeout(() => {
+                            const m = document.getElementById('uploadProgressModal');
+                            if (!m) return;
+                            m.querySelector('div > div').innerHTML += `
+                                <div style="margin-top:20px;animation:fadeIn 0.3s ease">
+                                    <button onclick="document.getElementById('uploadProgressModal').remove();loadStats();" style="padding:10px 32px;border-radius:10px;border:none;background:rgba(52,211,153,0.15);color:rgba(52,211,153,0.95);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(52,211,153,0.25)'" onmouseleave="this.style.background='rgba(52,211,153,0.15)'">
+                                        Weiter arbeiten
+                                    </button>
+                                </div>
+                            `;
+                        }, 600);
+                    }
+                }, stepDelay * i + 400); // +400ms initial delay
+            });
         }
 
         function duplicateAction(action, docId, title) {
