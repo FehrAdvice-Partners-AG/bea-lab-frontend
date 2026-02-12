@@ -10920,7 +10920,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 const res = await r.json();
                 removeTyping();
                 if (r.ok && res.ok) {
-                    bxShowSuccess('Projekt eröffnet', res.project_code, d.name, d.project_category, `prjOpenLanding('${res.slug}');switchTab('projects')`);
+                    bxShowSuccess('Projekt eröffnet', res.project_code, d.name, d.project_category, `showSection('projects');prjOpenLanding('${res.slug}')`);
                     bxCmdDraft = {}; bxCmdHistory = []; bxCmdIntent = '';
                     showToast(`✓ ${res.project_code} eröffnet!`, 'success');
                 } else { appendMessage('assistant', '❌ ' + (res.error||'Fehler')); }
@@ -11006,7 +11006,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     });
                     removeTyping();
                     if (r.ok) {
-                        bxShowSuccess('Modell gespeichert', '', d.model_type||'BCM', 'model', d.project_slug ? `prjOpenLanding('${d.project_slug}');switchTab('projects')` : '');
+                        bxShowSuccess('Modell gespeichert', '', d.model_type||'BCM', 'model', d.project_slug ? `showSection('projects');prjOpenLanding('${d.project_slug}')` : '');
                         bxCmdDraft = {}; bxCmdHistory = []; bxCmdIntent = '';
                         showToast('✓ Modell gespeichert!', 'success');
                     } else { appendMessage('assistant', '❌ Fehler beim Speichern'); }
