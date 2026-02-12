@@ -133,6 +133,9 @@
         .input-field,.textarea-field { width:100%; padding:10px 14px; background:var(--navy-light); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-family:inherit; font-size:13px; outline:none; transition:var(--transition); }
         .input-field:focus,.textarea-field:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
         .textarea-field { min-height:200px; resize:vertical; line-height:1.7; }
+        .textarea-field.content-zone { min-height:180px; border:2px dashed var(--border); border-radius:var(--radius); background:var(--navy-light); padding:20px; font-size:14px; line-height:1.8; transition:var(--transition); }
+        .textarea-field.content-zone:focus { border-color:var(--accent); border-style:solid; background:var(--navy-card); }
+        .textarea-field.content-zone::placeholder { color:var(--text-muted); font-size:14px; }
         .input-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
         .tag-container { display:flex; flex-wrap:wrap; gap:6px; padding:8px 12px; background:var(--navy-light); border:1px solid var(--border); border-radius:var(--radius-sm); min-height:40px; align-items:center; cursor:text; transition:var(--transition); }
         .tag-container:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
@@ -764,7 +767,7 @@
                 <div id="fileAnalysisPreview" style="display:none;margin-top:12px;padding:14px 18px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.2);border-radius:12px">
                     <div id="fileAnalysisContent" style="font-size:12px;color:var(--text-secondary)"></div>
                 </div>
-                <div id="fileMetaFields" style="margin-top:12px">
+                <div id="fileMetaFields" style="margin-top:16px">
                     <div class="input-group"><label>Titel</label><input type="text" class="input-field" id="fileTitle" placeholder="Wird automatisch erkannt..."></div>
                     <div class="input-row">
                         <div class="input-group"><label>Kategorie</label><select class="input-field" id="fileCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="note">Notiz</option></select></div>
@@ -774,16 +777,16 @@
                 </div>
             </div>
             <div class="text-section" id="text-section">
+                <div class="input-group"><label>Inhalt</label><textarea class="textarea-field content-zone" id="textContent" placeholder="Text oder Axiom-Definition hier einfügen..." onpaste="setTimeout(()=>analyzeTextContent(),300)" oninput="debounceTextAnalysis()"></textarea></div>
                 <div id="textAnalysisPreview" style="display:none;margin-bottom:16px;padding:14px 18px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.2);border-radius:12px">
                     <div id="textAnalysisContent" style="font-size:12px;color:var(--text-secondary)"></div>
                 </div>
-                <div class="input-group"><label>Titel</label><input type="text" class="input-field" id="textTitle" placeholder="z.B. Axiom INU-3200 Definition"></div>
+                <div class="input-group"><label>Titel</label><input type="text" class="input-field" id="textTitle" placeholder="Wird automatisch erkannt..."></div>
                 <div class="input-row">
                     <div class="input-group"><label>Kategorie</label><select class="input-field" id="textCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="note">Notiz</option></select></div>
                     <div class="input-group"><label>Sprache</label><select class="input-field" id="textLang"><option value="de">Deutsch</option><option value="en">English</option></select></div>
                 </div>
                 <div class="input-group"><label>Tags</label><div class="tag-container" id="tagContainer" onclick="this.querySelector('.tag-input').focus()"><input type="text" class="tag-input" id="tagInput" placeholder="Tag eingeben + Enter"></div></div>
-                <div class="input-group"><label>Inhalt</label><textarea class="textarea-field" id="textContent" placeholder="Text oder Axiom-Definition hier einfügen..." onpaste="setTimeout(()=>analyzeTextContent(),300)" oninput="debounceTextAnalysis()"></textarea></div>
             </div>
             <div class="actions">
                 <span class="upload-count" id="uploadCount"></span>
