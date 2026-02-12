@@ -2486,10 +2486,13 @@
                             <div id="prjLandingData" style="display:flex;flex-direction:column;gap:8px"></div>
                         </div>
                     </div>
-                    <div id="prjLandingOtherSection" style="margin-top:20px">
+                    <div id="prjLandingOtherSection" style="margin-top:20px;display:none">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                             <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px">🔗 Verknüpfte Projekte</div>
-                            <button onclick="prjLinkProjectStart()" style="font-size:10px;padding:3px 10px;background:rgba(42,127,142,0.08);border:1px solid rgba(42,127,142,0.2);border-radius:6px;color:var(--accent);cursor:pointer;font-family:inherit">+ Projekt verknüpfen</button>
+                            <div style="display:flex;gap:6px">
+                                <button onclick="prjLinkProjectStart()" style="font-size:10px;padding:3px 10px;background:rgba(42,127,142,0.08);border:1px solid rgba(42,127,142,0.2);border-radius:6px;color:var(--accent);cursor:pointer;font-family:inherit">+ Projekt verknüpfen</button>
+                                <button onclick="prjToggleLinkedPanel()" style="font-size:10px;padding:3px 8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-family:inherit">✕</button>
+                            </div>
                         </div>
                         <div id="prjLandingOther" style="background:var(--navy-card);border:1px solid var(--border);border-radius:12px;overflow:hidden"></div>
                     </div>
@@ -8004,6 +8007,19 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 resourceHtml += `<div style="text-align:center;padding:16px;font-size:12px;color:rgba(255,255,255,0.3)">Kein Kundenordner vorhanden.<br>Wird bei erster Analyse automatisch erstellt.</div>`;
             }
 
+            // ── Verknüpfte Projekte tile ──
+            const linkedAll = [...(d.other_projects||[]).filter(o=>o.slug), ...(d.linked_projects||[])];
+            const linkedCount = linkedAll.length;
+            resourceHtml += `
+                <div onclick="prjToggleLinkedPanel()" style="background:var(--navy-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='rgba(42,127,142,0.3)'" onmouseout="this.style.borderColor='var(--border)'">
+                    <div style="font-size:18px;width:32px;text-align:center">🔗</div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:13px;font-weight:600;color:white">Verknüpfte Projekte</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">${linkedCount > 0 ? linkedCount + ' Projekt' + (linkedCount>1?'e':'') + ' verknüpft' : 'Noch keine Verknüpfungen'}</div>
+                    </div>
+                    <div style="font-size:14px;flex-shrink:0">${linkedCount > 0 ? '✅' : '➕'}</div>
+                </div>`;
+
             document.getElementById('prjLandingResources').innerHTML = resourceHtml;
 
             // ── Right: Projektdaten ──
@@ -8156,6 +8172,14 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
         // ── PROJECT LINKING ──
         let _prjLinkAllProjects = [];
+
+        function prjToggleLinkedPanel() {
+            const el = document.getElementById('prjLandingOtherSection');
+            if (!el) return;
+            const isHidden = el.style.display === 'none';
+            el.style.display = isHidden ? '' : 'none';
+            if (isHidden) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
 
         async function prjLinkProjectStart() {
             if (!prjCurrentSlug) return;
