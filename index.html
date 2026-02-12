@@ -4051,24 +4051,31 @@
 
         function duplicateAction(action, docId, title) {
             closeDuplicateModal();
-            // Switch to Fragen tab and start a chat about this paper
-            const nav = document.querySelector('[onclick*="showSection(\'questions\'"]') || document.querySelector('.nav-item');
-            showSection('questions');
-            // Pre-fill chat with the right question
+            // Reset upload state
+            files = []; renderFileList(); updateCount();
+            document.getElementById('fileAnalysisPreview').style.display = 'none';
+            document.getElementById('fileMetaFields').style.display = '';
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> In Datenbank laden';
+
+            // Switch to Chat section
+            const navLink = document.querySelector('[data-section="chat"]');
+            showSection('chat', navLink);
+
+            // Pre-fill and auto-submit
             const prompts = {
                 explain: `Fasse das Paper "${title}" zusammen: Was sind die Kernaussagen, Methodik und wichtigsten Erkenntnisse?`,
                 relevance: `Erkläre mir, wo das Paper "${title}" im BCM-Kontext und für unsere Beratungsprojekte relevant ist. Welche Ψ-Dimensionen und Interventionstypen werden berührt?`,
                 connections: `Welche anderen Papers in unserer Wissensdatenbank sind thematisch verwandt mit "${title}"? Zeige mir die Verbindungen und wie sie sich ergänzen.`
             };
-            const input = document.getElementById('questionInput') || document.getElementById('chatInput');
-            if (input) {
-                input.value = prompts[action] || '';
-                input.focus();
-                // Auto-resize if textarea
-                if (input.tagName === 'TEXTAREA') {
-                    input.style.height = 'auto';
-                    input.style.height = input.scrollHeight + 'px';
-                }
+            const input = document.getElementById('chatInput');
+            if (input && prompts[action]) {
+                input.value = prompts[action];
+                input.style.height = 'auto';
+                input.style.height = input.scrollHeight + 'px';
+                // Auto-submit after short delay for UI to settle
+                setTimeout(() => sendChat(), 300);
             }
         }
 
