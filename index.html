@@ -723,9 +723,9 @@
             <div class="chat-messages" id="chatMessages" onclick="chatAreaClick(event)">
                 <div class="chat-welcome" id="chatWelcome">
                     <div class="chat-welcome-icon"><img src="/logo.jpeg" alt="BEATRIX"></div>
-                    <h3>Hallo! Ich bin BEATRIX.</h3>
-                    <p>Stelle mir eine Frage zu Behavioral Economics, zum Behavioral Competence Model oder zu Dokumenten in der Knowledge Base.</p>
-                    <div class="chat-suggestions">
+                    <h3 id="chatWelcomeTitle">Hallo! Ich bin BEATRIX.</h3>
+                    <p id="chatWelcomeText">Stelle mir eine Frage zu Behavioral Economics, zum Behavioral Competence Model oder zu Dokumenten in der Knowledge Base.</p>
+                    <div class="chat-suggestions" id="chatWelcomeSuggestions">
                         <button class="chat-suggestion" onclick="askSuggestion(this)">Was ist das BCM?</button>
                         <button class="chat-suggestion" onclick="askSuggestion(this)">Erkläre Complementarity</button>
                         <button class="chat-suggestion" onclick="askSuggestion(this)" style="border-color:rgba(52,211,153,0.2);color:rgba(52,211,153,0.6)">📋 Neues Projekt eröffnen</button>
@@ -2959,6 +2959,9 @@
                         console.log('Session restore:', currentUser.email, 'admin:', currentUser.admin);
                         if(document.getElementById('fbBtn')) document.getElementById('fbBtn').style.display = 'flex';
                         loadStats();
+                        // Returning user — always simplify welcome
+                        sessionStorage.setItem('bea_returning', '1');
+                        setTimeout(() => showReturningWelcome(), 100);
                         return;
                     }
                 } catch(e) {}
@@ -2988,9 +2991,41 @@
                 chatSessionId = generateSessionId();
                 saveSessionToStorage();
             }
-            setTimeout(() => { updateSessionBadge(); resumeSession(); updateCloseSessionBtn(); }, 300);
+            setTimeout(() => { updateSessionBadge(); resumeSession(); updateCloseSessionBtn(); adaptWelcomeForUser(); }, 300);
             // Trigger insight question after login
             setTimeout(() => insightStart('login'), 800);
+        }
+
+        async function adaptWelcomeForUser() {
+            // Check if returning user: has previous sessions or has logged in before
+            const isReturning = sessionStorage.getItem('bea_returning') === '1';
+            if (isReturning) {
+                showReturningWelcome();
+                return;
+            }
+            try {
+                const r = await fetch(`${API}/chat/sessions`, {headers: H()});
+                if (r.ok) {
+                    const sessions = await r.json();
+                    if (sessions.length > 1) {
+                        sessionStorage.setItem('bea_returning', '1');
+                        showReturningWelcome();
+                    }
+                }
+            } catch(e) {}
+        }
+
+        function showReturningWelcome() {
+            const title = document.getElementById('chatWelcomeTitle');
+            const text = document.getElementById('chatWelcomeText');
+            const suggestions = document.getElementById('chatWelcomeSuggestions');
+            if (!title) return;
+            const name = (currentUser?.name || '').split(' ')[0] || '';
+            const hour = new Date().getHours();
+            const greeting = hour < 12 ? 'Guten Morgen' : hour < 17 ? 'Hallo' : 'Guten Abend';
+            title.textContent = `${greeting}${name ? ', ' + name : ''}.`;
+            text.textContent = 'Was kann ich für dich tun?';
+            if (suggestions) suggestions.style.display = 'none';
         }
 
         // ── Insight / Ψ-Profiling (5-Choice Architecture) ──────────
@@ -10078,6 +10113,8 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 container.innerHTML = '';
                 if (welcome) { welcome.style.display = ''; container.appendChild(welcome); }
             }
+            // Re-apply returning user welcome if applicable
+            if (sessionStorage.getItem('bea_returning') === '1') showReturningWelcome();
             // Reset command mode state
             bxCmdDraft = {};
             bxCmdHistory = [];
