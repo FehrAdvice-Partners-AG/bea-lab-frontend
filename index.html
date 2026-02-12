@@ -4146,6 +4146,7 @@
                             <div style="display:flex;gap:8px;align-items:center">
                                 <span id="docDetailBadges"></span>
                                 <button id="docReviewBtn" onclick="reviewDocument()" style="padding:5px 12px;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);border-radius:8px;color:#a78bfa;font-size:11px;cursor:pointer;white-space:nowrap" title="Behavioral Economics Review">🧠 Review</button>
+                                <button id="docApeReviewBtn" onclick="apeReviewDocument()" style="padding:5px 12px;background:rgba(255,140,0,0.15);border:1px solid rgba(255,140,0,0.3);border-radius:8px;color:#ff8c00;font-size:11px;cursor:pointer;white-space:nowrap" title="APE Multi-Model Review (Claude + GPT + Grok + Gemini)">🔥 APE Review</button>
                                 <button id="docTriageBtn" onclick="triageDocument()" style="padding:5px 12px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3);border-radius:8px;color:#fbbf24;font-size:11px;cursor:pointer;white-space:nowrap" title="PURSUE/CONSIDER/SKIP Triage">⚡ Triage</button>
                                 <button id="docIntegrityBtn" onclick="integrityCheckDocument()" style="padding:5px 12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#f87171;font-size:11px;cursor:pointer;white-space:nowrap" title="Integrity Scan">🔍 Integrity</button>
                                 <button id="docMultiReviewBtn" onclick="multiReviewDocument()" style="padding:5px 12px;background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3);border-radius:8px;color:#34d399;font-size:11px;cursor:pointer;white-space:nowrap" title="3 Perspektiven Review">⚔️ Multi</button>
@@ -4552,6 +4553,88 @@
                 reviewEl.innerHTML = `<div style="color:#ef4444;font-size:12px">❌ Multi-Review fehlgeschlagen: ${e.message?.slice(0,200)}</div>`;
             }
             if (btn) { btn.disabled = false; btn.innerHTML = '⚔️ Multi'; }
+        }
+
+        async function apeReviewDocument() {
+            if (!currentDocId) return;
+            const btn = document.getElementById('docApeReviewBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ APE...'; }
+            const reviewEl = document.getElementById('docDetailReview');
+            reviewEl.style.display = '';
+            reviewEl.innerHTML = `<div style="padding:16px 0">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                    <div class="loading-spinner" style="width:22px;height:22px;border-width:2px"></div>
+                    <div>
+                        <div style="font-size:14px;font-weight:600;color:#ff8c00">APE Multi-Model Review</div>
+                        <div style="font-size:11px;color:var(--text-muted)">Alle verfügbaren Reviewer werden parallel aufgerufen...</div>
+                    </div>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <span id="apeStatus_beatrix" style="padding:4px 10px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);border-radius:6px;font-size:10px;color:#a78bfa">🧠 BEATRIX ⏳</span>
+                    <span id="apeStatus_methodologist" style="padding:4px 10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:6px;font-size:10px;color:#60a5fa">🔬 GPT ⏳</span>
+                    <span id="apeStatus_skeptic" style="padding:4px 10px;background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2);border-radius:6px;font-size:10px;color:#fb923c">🦊 Grok ⏳</span>
+                    <span id="apeStatus_practitioner" style="padding:4px 10px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2);border-radius:6px;font-size:10px;color:#34d399">💼 Gemini ⏳</span>
+                </div>
+                <div style="font-size:10px;color:var(--text-muted);margin-top:8px">Je nach verfügbaren API Keys: 30-120 Sek.</div>
+            </div>`;
+            try {
+                const r = await fetch(`${API}/documents/${currentDocId}/ape-review`, {method:'POST',headers:H(),body:JSON.stringify({})});
+                if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || await r.text());
+                const d = await r.json();
+                const revs = d.reviewers || {};
+                const errs = d.errors || {};
+                const consensus = d.consensus || '?';
+                const avgScore = d.avg_score || 0;
+                const cColor = {'ACCEPT':'#34d399','CONDITIONAL ACCEPT':'#60a5fa','MINOR REVISION':'#60a5fa','MAJOR REVISION':'#fbbf24','REJECT':'#ef4444'}[consensus]||'#9ca3af';
+
+                let html = `<div style="margin-bottom:14px">
+                    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
+                        <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#ff8c00;font-weight:600">🔥 APE Review</span>
+                        <span style="font-size:28px;font-weight:700;color:${cColor}">${avgScore.toFixed(0)}</span>
+                        <span style="font-size:12px;color:var(--text-muted)">/100 avg</span>
+                        <span style="padding:3px 12px;background:${cColor}22;color:${cColor};border-radius:6px;font-size:12px;font-weight:700">${consensus}</span>
+                        <span style="font-size:11px;color:${d.unanimous?'#34d399':'#fbbf24'}">${d.unanimous?'✅ Einstimmig':'⚠️ Disagreement'}</span>
+                    </div>
+                </div>`;
+
+                // Reviewer cards
+                html += `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">`;
+                for (const [key, rev] of Object.entries(revs)) {
+                    const vc = {'ACCEPT':'#34d399','CONDITIONAL ACCEPT':'#60a5fa','MINOR REVISION':'#60a5fa','MAJOR REVISION':'#fbbf24','REJECT':'#ef4444'}[rev.verdict]||'#9ca3af';
+                    html += `<div style="flex:1;min-width:140px;padding:10px 14px;background:rgba(0,0,0,0.2);border-radius:10px;border-left:3px solid ${vc}">
+                        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">${rev.icon} ${rev.name}</div>
+                        <div style="font-size:16px;font-weight:700;color:${vc}">${rev.score}/100</div>
+                        <div style="font-size:10px;color:${vc};margin-top:2px">${rev.verdict}</div>
+                        <div style="font-size:9px;color:var(--text-muted);margin-top:6px;line-height:1.4">${(rev.preview||'').slice(0,120)}...</div>
+                    </div>`;
+                }
+                html += `</div>`;
+
+                // Errors (unavailable reviewers)
+                if (Object.keys(errs).length) {
+                    html += `<div style="font-size:10px;color:var(--text-muted);margin-bottom:8px">Nicht verfügbar: ${Object.entries(errs).map(([k,v])=>`${k} (${v.slice(0,40)})`).join(', ')}</div>`;
+                }
+
+                // Synthesis
+                if (d.synthesis_preview) {
+                    html += `<div style="padding:10px 14px;background:rgba(255,140,0,0.05);border:1px solid rgba(255,140,0,0.15);border-radius:8px;margin-bottom:8px">
+                        <div style="font-size:10px;color:#ff8c00;font-weight:600;margin-bottom:4px">🔄 Synthese</div>
+                        <div style="font-size:11px;color:var(--text-secondary);line-height:1.5">${d.synthesis_preview}</div>
+                    </div>`;
+                }
+
+                // Link to full review
+                if (d.review_id) {
+                    html += `<a href="#" onclick="viewDocument('${d.review_id}');return false" style="font-size:11px;color:#ff8c00">📖 Vollständiges APE Review anzeigen</a>`;
+                }
+
+                reviewEl.innerHTML = html;
+                showToast(`APE Review: ${consensus} (${avgScore.toFixed(0)}/100) – ${Object.keys(revs).length} Reviewer`, 'success');
+            } catch(e) {
+                reviewEl.innerHTML = `<div style="color:#ef4444;font-size:12px">❌ APE Review fehlgeschlagen: ${e.message?.slice(0,300)}</div>`;
+                showToast(`APE Review Fehler`, 'error');
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '🔥 APE Review'; }
         }
 
         async function bulkClassifyDocs() {
