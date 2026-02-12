@@ -652,6 +652,10 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                         Dokumente
                     </a>
+                    <a class="nav-dropdown-item" data-section="uploadpriority" onclick="navDropClick('uploadpriority',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M12 11v6"/><path d="M9 14l3-3 3 3"/></svg>
+                        Upload Priority
+                    </a>
                 </div>
             </div>
             <div class="nav-dropdown" id="navDropBusiness" style="display:none">
@@ -829,6 +833,37 @@
         <div class="container"><div class="section-header" style="display:flex;justify-content:space-between;align-items:center"><div><h2>Dokumente</h2><p>Übersicht aller indexierten Dokumente in der BEATRIX Knowledge Base.</p></div><div style="display:flex;gap:8px"><button onclick="bulkApeReview()" style="padding:8px 16px;background:rgba(255,140,0,0.12);border:1px solid rgba(255,140,0,0.3);border-radius:10px;color:#ff8c00;font-size:12px;cursor:pointer;white-space:nowrap" id="bulkApeBtn">🔥 Alle APE-reviewen</button><button onclick="bulkClassifyDocs()" style="padding:8px 16px;background:rgba(42,127,142,0.12);border:1px solid rgba(42,127,142,0.3);border-radius:10px;color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap" id="bulkClassifyBtn">🧬 Alle klassifizieren</button></div></div>
         <div id="docFilterBar" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap"></div>
         <div id="docTableWrapper"></div></div>
+    </section>
+
+    <!-- ═══════ UPLOAD PRIORITY SECTION ═══════ -->
+    <section class="section" id="uploadpriority-section">
+        <div class="container">
+            <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2>📋 Upload Priority – Top 100</h2>
+                    <p>Die wichtigsten Papers für die Knowledge Base, priorisiert nach Integration Level, Content Level und Vernetzung.</p>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <div id="upStatsBar" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+                    <button onclick="loadUploadPriority()" style="padding:8px 16px;background:rgba(42,127,142,0.12);border:1px solid rgba(42,127,142,0.3);border-radius:10px;color:var(--accent);font-size:12px;cursor:pointer">🔄 Aktualisieren</button>
+                </div>
+            </div>
+            <div id="upFilterBar" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+                <button class="up-filter active" data-filter="all" onclick="upFilter('all',this)" style="padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);font-size:11px;cursor:pointer">Alle</button>
+                <button class="up-filter" data-filter="I5" onclick="upFilter('I5',this)" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(139,92,246,0.2);background:transparent;color:rgba(139,92,246,0.6);font-size:11px;cursor:pointer">I5 Foundational</button>
+                <button class="up-filter" data-filter="I4" onclick="upFilter('I4',this)" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(59,130,246,0.2);background:transparent;color:rgba(59,130,246,0.6);font-size:11px;cursor:pointer">I4 Core</button>
+                <button class="up-filter" data-filter="I3" onclick="upFilter('I3',this)" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(52,211,153,0.2);background:transparent;color:rgba(52,211,153,0.6);font-size:11px;cursor:pointer">I3 Standard</button>
+                <button class="up-filter" data-filter="doi" onclick="upFilter('doi',this)" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(251,191,36,0.2);background:transparent;color:rgba(251,191,36,0.6);font-size:11px;cursor:pointer">Mit DOI</button>
+            </div>
+            <div id="upTableWrapper" style="min-height:200px">
+                <div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,0.3)">Lade Priority-Liste...</div>
+            </div>
+            <div id="upMethodology" style="margin-top:16px;padding:14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;display:none">
+                <div style="font-size:11px;color:rgba(255,255,255,0.35);line-height:1.6">
+                    <strong style="color:rgba(255,255,255,0.5)">Priorisierung:</strong> Priority = IL-Gewicht (I5=500, I4=400, I3=300, I2=150, I1=50) + CL-Boost (L2=80, L1=20) + DOI-Boost (+15) + Case-Links (+5/Case, max 100) + Prior-Score (×50)
+                </div>
+            </div>
+        </div>
     </section>
 
     <!-- ═══════ MODEL BUILDING SECTION ═══════ -->
@@ -3306,6 +3341,7 @@
             const sec=document.getElementById(name+'-section'); if(sec) sec.classList.add('active');
             document.getElementById('hero-section').style.display = (name==='upload') ? '' : 'none';
             if(name==='documents') loadDocuments();
+            if(name==='uploadpriority') loadUploadPriority();
             if(name==='admin') loadAdminData();
             if(name==='context') caInit();
             if(name==='leads') crmLoad();
@@ -9465,6 +9501,113 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 else throw new Error(data.detail||'failed');
             } catch(e) { showToast('Sync fehlgeschlagen: '+e.message, 'error'); }
             btn.disabled=false; btn.textContent='🔄 Synchronisieren';
+        }
+
+        // ═══ UPLOAD PRIORITY TOP 100 ═══
+        let _upData = [];
+        let _upFilter = 'all';
+
+        async function loadUploadPriority() {
+            const wrapper = document.getElementById('upTableWrapper');
+            if (!wrapper) return;
+            wrapper.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><div class="loading-spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 10px"></div>Lade Priority-Liste...</div>';
+            try {
+                const r = await fetch(`${API}/papers/upload-priority`, {headers: H()});
+                if (!r.ok) throw new Error('Fehler');
+                const data = await r.json();
+                _upData = data.papers || data;
+                renderUploadPriority();
+                document.getElementById('upMethodology').style.display = 'block';
+            } catch(e) {
+                wrapper.innerHTML = `<div style="text-align:center;padding:40px;color:rgba(248,113,113,0.6)">Fehler: ${e.message}</div>`;
+            }
+        }
+
+        function upFilter(filter, btn) {
+            _upFilter = filter;
+            document.querySelectorAll('#upFilterBar .up-filter').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+            });
+            if (btn) { btn.classList.add('active'); btn.style.background = 'rgba(255,255,255,0.06)'; }
+            renderUploadPriority();
+        }
+
+        function renderUploadPriority() {
+            const wrapper = document.getElementById('upTableWrapper');
+            if (!wrapper || !_upData.length) return;
+
+            let papers = _upData;
+            if (_upFilter === 'I5') papers = papers.filter(p => p.integration_level === 'I5');
+            else if (_upFilter === 'I4') papers = papers.filter(p => p.integration_level === 'I4');
+            else if (_upFilter === 'I3') papers = papers.filter(p => p.integration_level === 'I3');
+            else if (_upFilter === 'doi') papers = papers.filter(p => p.doi || p.doi_strategy);
+
+            // Stats
+            const stats = document.getElementById('upStatsBar');
+            if (stats) {
+                const ilCounts = {}, clCounts = {};
+                let doiCount = 0;
+                _upData.forEach(p => {
+                    ilCounts[p.integration_level] = (ilCounts[p.integration_level]||0) + 1;
+                    clCounts[p.content_level] = (clCounts[p.content_level]||0) + 1;
+                    if (p.doi || p.doi_strategy) doiCount++;
+                });
+                stats.innerHTML = Object.entries(ilCounts).sort().map(([k,v]) => {
+                    const colors = {I5:'139,92,246', I4:'59,130,246', I3:'52,211,153', I2:'251,191,36', I1:'255,255,255'};
+                    const c = colors[k] || '255,255,255';
+                    return `<span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(${c},0.1);color:rgba(${c},0.7);border:1px solid rgba(${c},0.15)">${v}× ${k}</span>`;
+                }).join('') + `<span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(251,191,36,0.1);color:rgba(251,191,36,0.7);border:1px solid rgba(251,191,36,0.15)">${doiCount} DOI</span>`;
+            }
+
+            if (!papers.length) {
+                wrapper.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)">Keine Papers in diesem Filter.</div>';
+                return;
+            }
+
+            const ilColors = {I5:'139,92,246', I4:'59,130,246', I3:'52,211,153', I2:'251,191,36', I1:'180,180,180'};
+            const clColors = {L0:'248,113,113', L1:'251,191,36', L2:'52,211,153', L3:'59,130,246'};
+
+            let html = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead><tr style="border-bottom:1px solid var(--border)">
+                    <th style="padding:8px 6px;text-align:left;color:rgba(255,255,255,0.4);font-weight:600;white-space:nowrap">#</th>
+                    <th style="padding:8px 6px;text-align:left;color:rgba(255,255,255,0.4);font-weight:600">Paper</th>
+                    <th style="padding:8px 6px;text-align:center;color:rgba(255,255,255,0.4);font-weight:600">IL</th>
+                    <th style="padding:8px 6px;text-align:center;color:rgba(255,255,255,0.4);font-weight:600">CL</th>
+                    <th style="padding:8px 6px;text-align:center;color:rgba(255,255,255,0.4);font-weight:600">Score</th>
+                    <th style="padding:8px 6px;text-align:center;color:rgba(255,255,255,0.4);font-weight:600">DOI</th>
+                    <th style="padding:8px 6px;text-align:center;color:rgba(255,255,255,0.4);font-weight:600">Cases</th>
+                    <th style="padding:8px 6px;text-align:right;color:rgba(255,255,255,0.4);font-weight:600">Aktion</th>
+                </tr></thead><tbody>`;
+
+            papers.forEach(p => {
+                const ilC = ilColors[p.integration_level] || '180,180,180';
+                const clC = clColors[p.content_level] || '180,180,180';
+                const author = p.first_author || p.bibtex_key.replace(/\d+.*/, '');
+                const shortTitle = (p.title || '').length > 60 ? p.title.slice(0,57)+'...' : p.title;
+                const doiLink = p.doi ? `<a href="https://doi.org/${p.doi}" target="_blank" style="color:rgba(251,191,36,0.7);text-decoration:none;font-size:10px" title="${p.doi}">🔗</a>` : (p.doi_strategy ? `<span style="font-size:10px;color:rgba(255,255,255,0.25)" title="DOI-Strategie: ${p.doi_strategy}">◐</span>` : '<span style="font-size:10px;color:rgba(255,255,255,0.15)">–</span>');
+                
+                html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);transition:background 0.1s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background='transparent'">
+                    <td style="padding:8px 6px;color:rgba(255,255,255,0.3);font-weight:600">${p.rank}</td>
+                    <td style="padding:8px 6px">
+                        <div style="font-size:12px;color:rgba(255,255,255,0.8);font-weight:500">${author} (${p.year || '?'})</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px;max-width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(p.title||'').replace(/"/g,'&quot;')}">${shortTitle}</div>
+                        ${p.journal ? `<div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:1px;font-style:italic">${p.journal}</div>` : ''}
+                    </td>
+                    <td style="padding:8px 6px;text-align:center"><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(${ilC},0.12);color:rgba(${ilC},0.8);border:1px solid rgba(${ilC},0.2)">${p.integration_level}</span></td>
+                    <td style="padding:8px 6px;text-align:center"><span style="padding:2px 8px;border-radius:4px;font-size:10px;background:rgba(${clC},0.12);color:rgba(${clC},0.8);border:1px solid rgba(${clC},0.2)">${p.content_level}</span></td>
+                    <td style="padding:8px 6px;text-align:center;font-size:11px;color:rgba(255,255,255,0.5);font-weight:600">${p.priority_score}</td>
+                    <td style="padding:8px 6px;text-align:center">${doiLink}</td>
+                    <td style="padding:8px 6px;text-align:center;font-size:11px;color:rgba(255,255,255,${p.linked_cases > 0 ? '0.6' : '0.15'})">${p.linked_cases || '–'}</td>
+                    <td style="padding:8px 6px;text-align:right">
+                        ${p.doi ? `<a href="https://doi.org/${p.doi}" target="_blank" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(52,211,153,0.2);background:transparent;color:rgba(52,211,153,0.6);font-size:10px;text-decoration:none;cursor:pointer" title="Paper via DOI finden">📥 Finden</a>` : `<span style="font-size:10px;color:rgba(255,255,255,0.2)">Manuell</span>`}
+                    </td>
+                </tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            html += `<div style="text-align:center;padding:8px;font-size:11px;color:rgba(255,255,255,0.2)">${papers.length} von ${_upData.length} Papers</div>`;
+            wrapper.innerHTML = html;
         }
 
         async function loadStats() {
