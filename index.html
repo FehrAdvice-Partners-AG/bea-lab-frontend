@@ -10055,44 +10055,132 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 list.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted)">📭 Noch keine abgeschlossenen Sessions</div>`;
             }
         }
+        let _viewedSessionId = null;
+        let _viewedSessionClosed = false;
         async function openSessionDetail(sid) {
+            _viewedSessionId = sid;
             const modal = document.getElementById('sessionDetailModal');
             const titleEl = document.getElementById('sessionDetailTitle');
             const metaEl = document.getElementById('sessionDetailMeta');
             const msgsEl = document.getElementById('sessionDetailMessages');
+            const actionsEl = document.getElementById('sessionDetailActions');
             if (!modal || !msgsEl) return;
             modal.style.display = 'block';
+            if (actionsEl) actionsEl.style.display = 'none';
             msgsEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">⏳ Lade Nachrichten...</div>';
             try {
                 const r = await fetch(`${API}/chat/session/${sid}/messages`, {headers: H()});
                 if (!r.ok) throw new Error('Fehler beim Laden');
                 const data = await r.json();
+                _viewedSessionClosed = data.meta?.type === 'closed' || data.meta?.is_closed;
+                const isCurrent = sid === chatSessionId;
                 if (titleEl) titleEl.textContent = data.meta?.title || sid;
                 if (metaEl) {
                     const parts = [];
                     if (data.meta?.created_at) parts.push('📅 ' + new Date(data.meta.created_at).toLocaleString('de-CH'));
                     parts.push(`💬 ${data.messages.length} Nachrichten`);
                     if (data.meta?.duration_min > 0) parts.push(`⏱ ${data.meta.duration_min}min`);
-                    if (data.meta?.type === 'closed') parts.push('🔒 Geschlossen');
+                    if (_viewedSessionClosed) parts.push('🔒 Geschlossen');
+                    else if (isCurrent) parts.push('🟢 Aktiv');
                     metaEl.textContent = parts.join(' · ');
                 }
                 if (!data.messages.length) {
                     msgsEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">Keine Nachrichten</div>';
-                    return;
+                } else {
+                    msgsEl.innerHTML = data.messages.map(m => {
+                        const isUser = m.role === 'user';
+                        const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'}) : '';
+                        return `<div style="margin-bottom:12px;display:flex;gap:10px;${isUser ? 'flex-direction:row-reverse' : ''}">`
+                            + `<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;${isUser ? 'background:rgba(91,138,245,0.12);color:rgba(91,138,245,0.8);border:1px solid rgba(91,138,245,0.2)' : 'background:rgba(42,127,142,0.1);color:var(--accent-light);border:1px solid var(--border)'}">${isUser ? 'GF' : 'B'}</div>`
+                            + `<div style="max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;${isUser ? 'background:rgba(91,138,245,0.08);border:1px solid rgba(91,138,245,0.15);color:rgba(200,215,245,0.9)' : 'background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--text-secondary)'}">`
+                            + `<div>${formatMessage(m.content)}</div>`
+                            + (time ? `<div style="text-align:right;font-size:9px;color:var(--text-muted);margin-top:4px">${time}</div>` : '')
+                            + `</div></div>`;
+                    }).join('');
                 }
-                msgsEl.innerHTML = data.messages.map(m => {
-                    const isUser = m.role === 'user';
-                    const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'}) : '';
-                    return `<div style="margin-bottom:12px;display:flex;gap:10px;${isUser ? 'flex-direction:row-reverse' : ''}">`
-                        + `<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;${isUser ? 'background:rgba(91,138,245,0.12);color:rgba(91,138,245,0.8);border:1px solid rgba(91,138,245,0.2)' : 'background:rgba(42,127,142,0.1);color:var(--accent-light);border:1px solid var(--border)'}">${isUser ? 'GF' : 'B'}</div>`
-                        + `<div style="max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;${isUser ? 'background:rgba(91,138,245,0.08);border:1px solid rgba(91,138,245,0.15);color:rgba(200,215,245,0.9)' : 'background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--text-secondary)'}">`
-                        + `<div>${formatMessage(m.content)}</div>`
-                        + (time ? `<div style="text-align:right;font-size:9px;color:var(--text-muted);margin-top:4px">${time}</div>` : '')
-                        + `</div></div>`;
-                }).join('');
+
+                // Action buttons
+                if (actionsEl) {
+                    let btns = '';
+                    if (!isCurrent && !_viewedSessionClosed) {
+                        btns += `<button onclick="sessionContinue('${sid}')" style="padding:8px 18px;border-radius:8px;border:none;background:rgba(42,127,142,0.15);color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(42,127,142,0.25)'" onmouseleave="this.style.background='rgba(42,127,142,0.15)'">💬 Weiterchatten</button>`;
+                        btns += `<button onclick="sessionClose('${sid}')" style="padding:8px 18px;border-radius:8px;border:none;background:rgba(251,191,36,0.1);color:#fbbf24;font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(251,191,36,0.2)'" onmouseleave="this.style.background='rgba(251,191,36,0.1)'">🔒 Schliessen</button>`;
+                    } else if (isCurrent) {
+                        btns += `<button onclick="closeSessionDetail();document.getElementById('chatInput').focus()" style="padding:8px 18px;border-radius:8px;border:none;background:rgba(42,127,142,0.15);color:var(--accent);font-size:12px;font-weight:600;cursor:pointer">💬 Weiterschreiben</button>`;
+                        btns += `<button onclick="sessionClose('${sid}')" style="padding:8px 18px;border-radius:8px;border:none;background:rgba(251,191,36,0.1);color:#fbbf24;font-size:12px;font-weight:500;cursor:pointer">🔒 Schliessen</button>`;
+                    } else {
+                        btns += `<span style="font-size:11px;color:var(--text-muted)">🔒 Diese Session ist abgeschlossen</span>`;
+                    }
+                    btns += `<button onclick="sessionDelete('${sid}')" style="padding:8px 18px;border-radius:8px;border:none;background:rgba(239,68,68,0.08);color:rgba(239,68,68,0.6);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(239,68,68,0.15)';this.style.color='#ef4444'" onmouseleave="this.style.background='rgba(239,68,68,0.08)';this.style.color='rgba(239,68,68,0.6)'">🗑 Löschen</button>`;
+                    actionsEl.innerHTML = btns;
+                    actionsEl.style.display = 'flex';
+                }
             } catch(e) {
                 msgsEl.innerHTML = `<div style="text-align:center;padding:30px;color:rgba(220,80,80,0.8)">❌ ${e.message}</div>`;
             }
+        }
+
+        function sessionContinue(sid) {
+            chatSessionId = sid;
+            const badge = document.getElementById('chatSessionBadge');
+            if (badge) badge.textContent = sid.slice(0,15) + '…';
+            // Clear chat, load session messages
+            const container = document.getElementById('chatMessages');
+            if (container) container.innerHTML = '';
+            closeSessionDetail();
+            toggleSessionHistory();
+            showSection('chat', document.querySelector('[data-section="chat"]'));
+            // Reload messages
+            fetch(`${API}/chat/session/${sid}/messages`, {headers: H()})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.messages) {
+                        data.messages.forEach(m => appendMessage(m.role, m.content, m.sources));
+                    }
+                    showToast('Session fortgesetzt', 'success');
+                })
+                .catch(() => showToast('Session geladen', 'success'));
+        }
+
+        async function sessionClose(sid) {
+            if (!confirm('Session wirklich schliessen? Du kannst danach nicht mehr weiterschreiben.')) return;
+            try {
+                const r = await fetch(`${API}/chat/session/${sid}/close`, {method:'POST', headers: H()});
+                if (!r.ok) throw new Error('Fehler');
+                showToast('Session geschlossen', 'success');
+                if (sid === chatSessionId) {
+                    // Start new session
+                    chatSessionId = 'S-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+                    const badge = document.getElementById('chatSessionBadge');
+                    if (badge) badge.textContent = chatSessionId.slice(0,15) + '…';
+                    const container = document.getElementById('chatMessages');
+                    if (container) container.innerHTML = '';
+                    const welcome = document.getElementById('chatWelcome');
+                    if (welcome) welcome.style.display = '';
+                }
+                closeSessionDetail();
+                loadSessionHistory();
+            } catch(e) { showToast('Fehler beim Schliessen', 'error'); }
+        }
+
+        async function sessionDelete(sid) {
+            if (!confirm('Session unwiderruflich löschen? Alle Nachrichten gehen verloren.')) return;
+            try {
+                const r = await fetch(`${API}/chat/session/${sid}`, {method:'DELETE', headers: H()});
+                if (!r.ok && r.status !== 404) throw new Error('Fehler');
+                showToast('Session gelöscht', 'success');
+                if (sid === chatSessionId) {
+                    chatSessionId = 'S-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+                    const badge = document.getElementById('chatSessionBadge');
+                    if (badge) badge.textContent = chatSessionId.slice(0,15) + '…';
+                    const container = document.getElementById('chatMessages');
+                    if (container) container.innerHTML = '';
+                    const welcome = document.getElementById('chatWelcome');
+                    if (welcome) welcome.style.display = '';
+                }
+                closeSessionDetail();
+                loadSessionHistory();
+            } catch(e) { showToast('Fehler beim Löschen', 'error'); }
         }
         function closeSessionDetail() {
             const modal = document.getElementById('sessionDetailModal');
@@ -12699,7 +12787,8 @@ Schreibe detailliert, wissenschaftlich fundiert und praxisorientiert. Nutze Tabe
                 </div>
                 <button onclick="closeSessionDetail()" style="background:none;border:none;color:var(--text-muted,#6b7fa3);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
             </div>
-            <div id="sessionDetailMessages" style="padding:16px 20px;max-height:70vh;overflow-y:auto"></div>
+            <div id="sessionDetailMessages" style="padding:16px 20px;max-height:60vh;overflow-y:auto"></div>
+            <div id="sessionDetailActions" style="display:none;padding:12px 20px;border-top:1px solid var(--border,#1e2d4a);display:flex;gap:8px;justify-content:center;flex-wrap:wrap"></div>
         </div>
     </div>
 </body>
