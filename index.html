@@ -3906,6 +3906,21 @@
         function closeDuplicateModal() {
             const m = document.getElementById('duplicateModal');
             if (m) m.remove();
+            // Reset file list – remove errored files, re-enable button
+            files = files.filter(f => f.status !== 'error');
+            renderFileList(); updateCount();
+            if (!files.length) {
+                document.getElementById('fileAnalysisPreview').style.display = 'none';
+                document.getElementById('fileMetaFields').style.display = '';
+                // Reset meta fields
+                document.getElementById('fileTitle').value = '';
+                document.getElementById('fileCategory').value = 'general';
+                document.getElementById('fileLang').value = 'de';
+                fileTags = []; renderFileTags();
+            }
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> In Datenbank laden';
         }
 
         function showUploadProgress(title, isPaper, result, fileCount) {
@@ -3974,7 +3989,7 @@
                             if (!m) return;
                             m.querySelector('div > div').innerHTML += `
                                 <div style="margin-top:20px;animation:fadeIn 0.3s ease">
-                                    <button onclick="document.getElementById('uploadProgressModal').remove();loadStats();" style="padding:10px 32px;border-radius:10px;border:none;background:rgba(52,211,153,0.15);color:rgba(52,211,153,0.95);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(52,211,153,0.25)'" onmouseleave="this.style.background='rgba(52,211,153,0.15)'">
+                                    <button onclick="document.getElementById('uploadProgressModal').remove();files=[];renderFileList();updateCount();document.getElementById('fileAnalysisPreview').style.display='none';document.getElementById('fileMetaFields').style.display='';document.getElementById('fileTitle').value='';document.getElementById('fileCategory').value='general';document.getElementById('fileLang').value='de';fileTags=[];renderFileTags();loadStats();" style="padding:10px 32px;border-radius:10px;border:none;background:rgba(52,211,153,0.15);color:rgba(52,211,153,0.95);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(52,211,153,0.25)'" onmouseleave="this.style.background='rgba(52,211,153,0.15)'">
                                         Weiter arbeiten
                                     </button>
                                 </div>
