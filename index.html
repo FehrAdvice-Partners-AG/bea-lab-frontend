@@ -4646,24 +4646,66 @@
             const msgEl = document.getElementById(msgId);
             if (!msgEl) return;
             const bodyEl = msgEl.querySelector('.chat-msg-body');
-            // Get text content, excluding the button bar
             const clone = bodyEl.cloneNode(true);
-            const btnBar = clone.querySelector('div[style*="border-top"]');
-            if (btnBar) btnBar.remove();
+            // Remove button bar and challenge results
+            clone.querySelectorAll('div[style*="border-top"], div[style*="rgba(255,140,0"]').forEach(el => el.remove());
             const text = clone.innerText.trim();
-            try {
-                await navigator.clipboard.writeText(text);
-                const btn = msgEl.querySelector('[onclick*="copyAnswer"]');
-                if (btn) { const orig = btn.innerHTML; btn.innerHTML = '✅ Kopiert'; setTimeout(() => btn.innerHTML = orig, 1500); }
-            } catch(e) {
-                // Fallback for iPad/Safari
-                const ta = document.createElement('textarea');
-                ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
-                document.body.appendChild(ta); ta.select();
-                document.execCommand('copy'); document.body.removeChild(ta);
-                const btn = msgEl.querySelector('[onclick*="copyAnswer"]');
-                if (btn) { const orig = btn.innerHTML; btn.innerHTML = '✅ Kopiert'; setTimeout(() => btn.innerHTML = orig, 1500); }
+            const btn = msgEl.querySelector('[onclick*="copyAnswer"]');
+            
+            let ok = false;
+            
+            // Method 1: Modern clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try { await navigator.clipboard.writeText(text); ok = true; } catch(e) {}
             }
+            
+            // Method 2: iOS Safari workaround
+            if (!ok) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:none;outline:none;box-shadow:none;opacity:0.01';
+                document.body.appendChild(ta);
+                
+                // iOS specific: must use setSelectionRange
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                if (isIOS) {
+                    ta.contentEditable = true;
+                    ta.readOnly = false;
+                    const range = document.createRange();
+                    range.selectNodeContents(ta);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    ta.setSelectionRange(0, 999999);
+                } else {
+                    ta.select();
+                }
+                
+                try { ok = document.execCommand('copy'); } catch(e) {}
+                document.body.removeChild(ta);
+            }
+            
+            // Method 3: Last resort - show selectable text
+            if (!ok) {
+                const popup = document.createElement('div');
+                popup.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)';
+                popup.onclick = (e) => { if (e.target === popup) popup.remove(); };
+                popup.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:90vw;max-height:70vh;padding:20px;overflow:auto">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <span style="font-size:13px;font-weight:600;color:white">Text zum Kopieren (alles markieren → kopieren)</span>
+                        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer">✕</button>
+                    </div>
+                    <textarea readonly style="width:100%;min-height:200px;background:rgba(0,0,0,0.3);color:var(--text-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;line-height:1.6;font-family:inherit;resize:vertical">${text.replace(/</g,'&lt;')}</textarea>
+                </div>`;
+                document.body.appendChild(popup);
+                const textArea = popup.querySelector('textarea');
+                textArea.focus();
+                textArea.setSelectionRange(0, textArea.value.length);
+                return;
+            }
+            
+            if (btn && ok) { const orig = btn.innerHTML; btn.innerHTML = '✅ Kopiert'; setTimeout(() => btn.innerHTML = orig, 1500); }
         }
 
         async function challengeAnswer(msgId) {
