@@ -9613,27 +9613,152 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         function upGoToUpload(rank) {
             const p = _upData.find(x => x.rank === rank);
             if (!p) return;
+            // Store current paper context
+            window._upCurrentPaper = p;
             // Switch to Research Papers DB
             const researchDb = document.querySelector('[data-db="research"]');
             if (researchDb) selectDB(researchDb);
             // Switch to upload section
             showSection('upload', document.querySelector('[data-section="upload"]'));
-            // Pre-fill text title if available
+            // Pre-fill title
             const titleInput = document.getElementById('textTitle');
             const author = p.first_author || p.bibtex_key.replace(/\d+.*/, '');
             if (titleInput) titleInput.value = `${author} (${p.year || '?'}) – ${p.title || p.bibtex_key}`;
-            // Show info toast
-            const doiHint = p.doi ? `\nDOI: https://doi.org/${p.doi}` : '';
-            showToast(`📋 #${p.rank}: ${author} (${p.year}) – ${p.integration_level}/${p.content_level}${doiHint}\nBitte PDF hochladen oder Text einfügen.`, 'info');
-            // If DOI available, also open in new tab
-            if (p.doi) {
-                window.open(`https://doi.org/${p.doi}`, '_blank');
+            // Show PDF search panel
+            upShowPdfSearch(p);
+        }
+
+        async function upShowPdfSearch(p) {
+            const author = p.first_author || p.bibtex_key.replace(/\d+.*/, '');
+            // Create or get the search panel
+            let panel = document.getElementById('upPdfSearchPanel');
+            if (!panel) {
+                panel = document.createElement('div');
+                panel.id = 'upPdfSearchPanel';
+                panel.style.cssText = 'margin:16px 0;padding:16px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.2);border-radius:12px';
+                const dropZone = document.getElementById('dropZone');
+                if (dropZone) dropZone.parentNode.insertBefore(panel, dropZone);
+                else return;
             }
-            // Scroll to upload zone
-            setTimeout(() => {
-                const zone = document.getElementById('dropZone');
-                if (zone) zone.scrollIntoView({behavior:'smooth', block:'center'});
-            }, 300);
+            panel.style.display = 'block';
+            panel.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <div>
+                        <div style="font-size:13px;font-weight:600;color:var(--accent)">🔍 PDF suchen: ${author} (${p.year || '?'})</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px">${(p.title||'').slice(0,80)}${p.title && p.title.length > 80 ? '...' : ''}</div>
+                    </div>
+                    <button onclick="document.getElementById('upPdfSearchPanel').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:16px">✕</button>
+                </div>
+                <div id="upPdfResults" style="min-height:40px">
+                    <div style="display:flex;align-items:center;gap:8px;padding:12px;color:rgba(255,255,255,0.4)">
+                        <div class="loading-spinner" style="width:14px;height:14px;border-width:2px"></div>
+                        Suche in Unpaywall, Semantic Scholar, CORE...
+                    </div>
+                </div>`;
+
+            // Scroll to panel
+            setTimeout(() => panel.scrollIntoView({behavior:'smooth', block:'center'}), 200);
+
+            // Call API
+            try {
+                const r = await fetch(`${API}/papers/find-pdf`, {
+                    method: 'POST', headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify({doi: p.doi, title: p.title, author: author, year: p.year})
+                });
+                const data = await r.json();
+                upRenderPdfResults(data, p);
+            } catch(e) {
+                document.getElementById('upPdfResults').innerHTML = `<div style="padding:12px;color:rgba(248,113,113,0.6);font-size:12px">Fehler: ${e.message}</div>`;
+            }
+        }
+
+        function upRenderPdfResults(data, paper) {
+            const container = document.getElementById('upPdfResults');
+            if (!container) return;
+            const pdfs = (data.results || []).filter(r => r.type === 'pdf');
+            const landings = (data.results || []).filter(r => r.type === 'landing');
+            const searches = (data.results || []).filter(r => r.type === 'search');
+            const author = paper.first_author || paper.bibtex_key.replace(/\d+.*/, '');
+
+            let html = '';
+            if (pdfs.length > 0) {
+                html += `<div style="padding:8px 12px;background:rgba(52,211,153,0.08);border-radius:8px;margin-bottom:8px">
+                    <div style="font-size:12px;font-weight:600;color:rgba(52,211,153,0.8);margin-bottom:6px">✅ ${pdfs.length} PDF-Quelle${pdfs.length > 1 ? 'n' : ''} gefunden</div>`;
+                pdfs.forEach((r, i) => {
+                    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;${i > 0 ? 'border-top:1px solid rgba(255,255,255,0.04)' : ''}">
+                        <span style="font-size:10px;color:rgba(255,255,255,0.35);min-width:60px">${r.source}</span>
+                        <a href="${r.url}" target="_blank" style="font-size:11px;color:rgba(52,211,153,0.7);text-decoration:none;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${r.url}">${r.url.slice(0,60)}...</a>
+                        <button onclick="upFetchAndUpload('${r.url.replace(/'/g, "\\'")}')" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(52,211,153,0.3);background:rgba(52,211,153,0.1);color:rgba(52,211,153,0.8);font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap">📥 Holen & Upload</button>
+                    </div>`;
+                });
+                html += '</div>';
+            } else {
+                html += `<div style="padding:8px 12px;background:rgba(251,191,36,0.06);border-radius:8px;margin-bottom:8px">
+                    <div style="font-size:12px;color:rgba(251,191,36,0.7)">⚠️ Kein Open-Access-PDF gefunden. Manuelle Suche nötig:</div>
+                </div>`;
+            }
+
+            // Landing pages
+            if (landings.length > 0) {
+                html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">`;
+                landings.forEach(r => {
+                    html += `<a href="${r.url}" target="_blank" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(59,130,246,0.2);background:transparent;color:rgba(59,130,246,0.6);font-size:10px;text-decoration:none">🔗 ${r.source}</a>`;
+                });
+                html += '</div>';
+            }
+
+            // Search links
+            if (searches.length > 0) {
+                html += `<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+                searches.forEach(r => {
+                    html += `<a href="${r.url}" target="_blank" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.4);font-size:10px;text-decoration:none">🔍 ${r.source}</a>`;
+                });
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        async function upFetchAndUpload(url) {
+            const p = window._upCurrentPaper;
+            if (!p) { showToast('Kein Paper-Kontext', 'error'); return; }
+            const author = p.first_author || p.bibtex_key.replace(/\d+.*/, '');
+
+            // Show loading
+            const btn = event.target;
+            const origText = btn.textContent;
+            btn.textContent = '⏳ Lade...';
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+
+            try {
+                const r = await fetch(`${API}/papers/fetch-and-upload`, {
+                    method: 'POST', headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify({url, paper_id: p.paper_id, title: p.title, author, year: p.year, doi: p.doi})
+                });
+                const data = await r.json();
+                if (data.ok) {
+                    btn.textContent = '✅ Hochgeladen!';
+                    btn.style.background = 'rgba(52,211,153,0.2)';
+                    showToast(`✅ ${data.filename} (${(data.size/1024).toFixed(0)} KB) → GitHub hochgeladen!`, 'success');
+                    // Show GitHub link
+                    if (data.html_url) {
+                        const link = document.createElement('a');
+                        link.href = data.html_url;
+                        link.target = '_blank';
+                        link.style.cssText = 'display:inline-block;margin-left:8px;font-size:10px;color:rgba(52,211,153,0.7);text-decoration:none';
+                        link.textContent = '↗ GitHub';
+                        btn.parentNode.appendChild(link);
+                    }
+                } else {
+                    throw new Error(data.detail || 'Upload fehlgeschlagen');
+                }
+            } catch(e) {
+                btn.textContent = origText;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                showToast(`❌ ${e.message}`, 'error');
+            }
         }
 
         async function loadStats() {
