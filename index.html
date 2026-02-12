@@ -780,7 +780,7 @@
                 <div id="fileMetaFields" style="margin-top:16px">
                     <div class="input-group"><label>Titel</label><input type="text" class="input-field" id="fileTitle" placeholder="Wird automatisch erkannt..."></div>
                     <div class="input-row">
-                        <div class="input-group"><label>Kategorie</label><select class="input-field" id="fileCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="book">Buch</option><option value="note">Notiz</option></select></div>
+                        <div class="input-group"><label>Kategorie</label><select class="input-field" id="fileCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="book">Buch</option><option value="study">Studie/Report</option><option value="note">Notiz</option></select></div>
                         <div class="input-group"><label>Sprache</label><select class="input-field" id="fileLang"><option value="de">Deutsch</option><option value="en">English</option></select></div>
                     </div>
                     <div class="input-group"><label>Tags</label><div class="tag-container" id="fileTagContainer" onclick="this.querySelector('.tag-input').focus()"><input type="text" class="tag-input" id="fileTagInput" placeholder="Tag eingeben + Enter"></div></div>
@@ -801,7 +801,7 @@
                 </div>
                 <div class="input-group"><label>Titel</label><input type="text" class="input-field" id="textTitle" placeholder="Wird automatisch erkannt..."></div>
                 <div class="input-row">
-                    <div class="input-group"><label>Kategorie</label><select class="input-field" id="textCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="book">Buch</option><option value="note">Notiz</option></select></div>
+                    <div class="input-group"><label>Kategorie</label><select class="input-field" id="textCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="book">Buch</option><option value="study">Studie/Report</option><option value="note">Notiz</option></select></div>
                     <div class="input-group"><label>Sprache</label><select class="input-field" id="textLang"><option value="de">Deutsch</option><option value="en">English</option></select></div>
                 </div>
                 <div class="input-group"><label>Tags</label><div class="tag-container" id="tagContainer" onclick="this.querySelector('.tag-input').focus()"><input type="text" class="tag-input" id="tagInput" placeholder="Tag eingeben + Enter"></div></div>
@@ -3472,6 +3472,43 @@
                     </div>
                     ${signalTags}${metaHtml}${isbnHtml}${summaryHtml}
                     <div style="margin-top:8px;font-size:11px;color:#f59e0b">→ Wird in die Knowledge Base aufgenommen (kein GitHub-Push)</div>
+                `;
+            }
+
+            // ── STUDY/REPORT detected ──
+            if (d.study_detected) {
+                const sm = d.study_meta || {};
+                const typeLabel = d.study_type_label || 'Report/Studie';
+                const typeIcons = {consulting:'🏢', think_tank:'🧠', international_org:'🌐', government:'🏛️', policy_brief:'📋', industry_report:'📊', survey_study:'📈', report:'📄'};
+                const typeIcon = typeIcons[d.study_type] || '📊';
+
+                let metaHtml = '';
+                const parts = [];
+                if (sm.authors?.length) parts.push(`✍️ ${sm.authors.join(', ')}`);
+                if (sm.organization) parts.push(`${typeIcon} ${sm.organization}`);
+                if (parts.length) metaHtml = `<div style="margin-top:8px;font-size:12px;color:var(--text-secondary);display:flex;flex-wrap:wrap;gap:12px">${parts.join(' · ')}</div>`;
+
+                const signalTags = d.study_signals?.length
+                    ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${d.study_signals.map(s => `<span style="padding:1px 6px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:4px;font-size:10px">${s}</span>`).join('')}</div>`
+                    : '';
+                const summaryHtml = d.summary
+                    ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(255,255,255,0.02);border-radius:8px;font-style:italic;color:var(--text-secondary);font-size:12px">${d.summary}</div>`
+                    : '';
+                const fileInfo = d.filename
+                    ? `${d.filename} · ${d.chars?.toLocaleString() || '?'} Zeichen`
+                    : `${d.chars?.toLocaleString() || '?'} Zeichen`;
+
+                return `
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                        <span style="font-size:18px">${typeIcon}</span>
+                        <div>
+                            <span style="color:#8b5cf6;font-weight:600">${typeLabel} erkannt</span> (Score: ${d.study_score})
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${fileInfo}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:6px;display:inline-block;padding:3px 10px;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);border-radius:6px;font-size:11px;color:#a78bfa;font-weight:500">${typeLabel}</div>
+                    ${signalTags}${metaHtml}${summaryHtml}
+                    <div style="margin-top:8px;font-size:11px;color:#8b5cf6">→ Wird in die Knowledge Base aufgenommen</div>
                 `;
             }
 
