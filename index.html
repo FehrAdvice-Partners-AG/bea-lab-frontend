@@ -9762,6 +9762,13 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     btn.style.background = 'rgba(251,191,36,0.2)';
                     btn.style.color = 'rgba(251,191,36,0.8)';
                     showToast(`⚠️ Bereits vorhanden: ${data.title || 'Dokument'}\n${data.message || ''}`, 'info');
+                } else if (data.verified === false) {
+                    btn.textContent = '❌ Falsches Paper';
+                    btn.style.background = 'rgba(239,68,68,0.15)';
+                    btn.style.color = 'rgba(239,68,68,0.8)';
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    showToast(`❌ Title-Check: ${(data.match_ratio*100).toFixed(0)}% Match\n${data.message || 'PDF enthält nicht das erwartete Paper'}`, 'error');
                 } else {
                     throw new Error(data.detail || 'Upload fehlgeschlagen');
                 }
