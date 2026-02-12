@@ -4145,12 +4145,14 @@
                             <div id="docDetailTitle" style="font-size:16px;font-weight:600;color:var(--text-primary);flex:1;margin-right:12px"></div>
                             <div style="display:flex;gap:8px;align-items:center">
                                 <span id="docDetailBadges"></span>
+                                <button id="docReviewBtn" onclick="reviewDocument()" style="padding:5px 12px;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);border-radius:8px;color:#a78bfa;font-size:11px;cursor:pointer;white-space:nowrap">🧠 BEATRIX Review</button>
                                 <button id="docClassifyBtn" onclick="classifyDocument()" style="padding:5px 12px;background:rgba(42,127,142,0.15);border:1px solid rgba(42,127,142,0.3);border-radius:8px;color:var(--accent);font-size:11px;cursor:pointer;white-space:nowrap">🧬 Klassifizieren</button>
                                 <button onclick="document.getElementById('docDetailModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
                             </div>
                         </div>
                         <div id="docDetailMeta" style="padding:12px 24px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-secondary);display:flex;flex-wrap:wrap;gap:16px"></div>
                         <div id="docDetailClassification" style="display:none;padding:16px 24px;border-bottom:1px solid var(--border)"></div>
+                        <div id="docDetailReview" style="display:none;padding:16px 24px;border-bottom:1px solid var(--border)"></div>
                         <div id="docDetailContent" style="padding:24px;max-height:70vh;overflow-y:auto">
                             <pre style="white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:13px;line-height:1.7;color:var(--text-secondary);margin:0"></pre>
                         </div>
@@ -4165,6 +4167,8 @@
             document.getElementById('docDetailContent').querySelector('pre').textContent = '';
             document.getElementById('docDetailClassification').style.display = 'none';
             document.getElementById('docDetailClassification').innerHTML = '';
+            document.getElementById('docDetailReview').style.display = 'none';
+            document.getElementById('docDetailReview').innerHTML = '';
             modal.style.display = '';
 
             try {
@@ -4202,6 +4206,9 @@
 
                 // Show existing classification if present
                 renderDocClassification(d.metadata);
+
+                // Check for existing BEATRIX review
+                renderDocReview(d.metadata, d.id);
 
                 // Content
                 const content = d.content || '(Kein Inhalt)';
@@ -4307,6 +4314,119 @@
             } catch(e) {
                 showToast(`Fehler: ${e.message}`, 'error');
                 if (btn) { btn.disabled = false; btn.textContent = '🧬 Klassifizieren'; }
+            }
+        }
+
+        function renderDocReview(meta, docId) {
+            const el = document.getElementById('docDetailReview');
+            if (!meta?.review_type && !meta?.reviewed_doc_id) {
+                // Check if this doc HAS a review (search for it)
+                el.style.display = 'none';
+                return;
+            }
+            // If this IS a review, show review metadata
+            if (meta?.review_type === 'beatrix_behavioral_economics') {
+                el.style.display = '';
+                const scoreColor = meta.score >= 65 ? '#34d399' : meta.score >= 45 ? '#fbbf24' : '#ef4444';
+                const verdictColor = {'ACCEPT':'#34d399','CONDITIONAL ACCEPT':'#60a5fa','MAJOR REVISION':'#f59e0b','REJECT':'#ef4444'}[meta.verdict] || '#9ca3af';
+                const recLabel = meta.score >= 65 ? 'PURSUE' : meta.score >= 45 ? 'CONSIDER' : 'SKIP';
+                let html = `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+                    <div style="display:flex;align-items:baseline;gap:6px">
+                        <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">BEATRIX Review</span>
+                        <span style="font-size:22px;font-weight:700;color:${scoreColor}">${meta.score}</span>
+                        <span style="font-size:12px;color:var(--text-muted)">/100</span>
+                        <span style="padding:2px 8px;background:${scoreColor}22;color:${scoreColor};border-radius:4px;font-size:10px;font-weight:600">${recLabel}</span>
+                    </div>
+                    <div style="padding:3px 10px;background:${verdictColor}22;color:${verdictColor};border-radius:6px;font-size:11px;font-weight:600">${meta.verdict || 'UNKNOWN'}</span></div>
+                </div>`;
+                // Ψ-Dimensions
+                if (meta.psi_dimensions?.length) {
+                    html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${meta.psi_dimensions.map(p=>`<span style="padding:2px 8px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:4px;font-size:10px;color:#a78bfa">Ψ${p}</span>`).join('')}</div>`;
+                }
+                // Behavioral mechanisms
+                if (meta.behavioral_mechanisms?.length) {
+                    html += `<div style="display:flex;flex-wrap:wrap;gap:4px">${meta.behavioral_mechanisms.map(m=>`<span style="padding:2px 8px;background:rgba(42,127,142,0.08);border:1px solid rgba(42,127,142,0.2);border-radius:4px;font-size:10px;color:var(--accent)">${m.replace(/_/g,' ')}</span>`).join('')}</div>`;
+                }
+                // Link to reviewed doc
+                if (meta.reviewed_doc_id) {
+                    html += `<div style="margin-top:8px"><a href="#" onclick="viewDocument('${meta.reviewed_doc_id}');return false" style="font-size:11px;color:var(--accent)">📄 ${meta.reviewed_doc_title || 'Originaldokument anzeigen'}</a></div>`;
+                }
+                el.innerHTML = html;
+            }
+        }
+
+        async function reviewDocument() {
+            if (!currentDocId) return;
+            const btn = document.getElementById('docReviewBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="loading-spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Analysiere...'; }
+
+            // Show progress in review section
+            const reviewEl = document.getElementById('docDetailReview');
+            reviewEl.style.display = '';
+            reviewEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px 0">
+                <div class="loading-spinner" style="width:20px;height:20px;border-width:2px"></div>
+                <div>
+                    <div style="font-size:13px;color:var(--text-primary)">BEATRIX Behavioral Economics Review wird erstellt...</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">BCM 2.0 + Ψ-Dimensionen Analyse (ca. 30-60 Sek.)</div>
+                </div>
+            </div>`;
+
+            try {
+                const r = await fetch(`${API}/documents/${currentDocId}/review`, {
+                    method: 'POST', headers: H()
+                });
+                if (!r.ok) {
+                    const err = await r.text();
+                    throw new Error(err);
+                }
+                const d = await r.json();
+
+                // Show success with score
+                const scoreColor = d.score >= 65 ? '#34d399' : d.score >= 45 ? '#fbbf24' : '#ef4444';
+                const verdictColor = {'ACCEPT':'#34d399','CONDITIONAL ACCEPT':'#60a5fa','MAJOR REVISION':'#f59e0b','REJECT':'#ef4444'}[d.verdict] || '#9ca3af';
+                const recLabel = d.score >= 65 ? 'PURSUE' : d.score >= 45 ? 'CONSIDER' : 'SKIP';
+                const tags = d.tags || {};
+
+                let html = `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+                    <div style="display:flex;align-items:baseline;gap:6px">
+                        <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">BEATRIX Review</span>
+                        <span style="font-size:26px;font-weight:700;color:${scoreColor}">${d.score}</span>
+                        <span style="font-size:12px;color:var(--text-muted)">/100</span>
+                        <span style="padding:3px 10px;background:${scoreColor}22;color:${scoreColor};border-radius:6px;font-size:11px;font-weight:600">${recLabel}</span>
+                    </div>
+                    <div style="padding:4px 12px;background:${verdictColor}22;color:${verdictColor};border-radius:6px;font-size:12px;font-weight:600">${d.verdict}</div>
+                </div>`;
+
+                // Ψ-Dimensions
+                if (tags.psi_dimensions?.length) {
+                    const psiNames = {1:'Risk Perception',2:'Time Preferences',3:'Social Preferences',4:'Reference Dependence',5:'Attention/Salience',6:'Self-Control',7:'Beliefs & Mental Models',8:'Identity & Self-Image'};
+                    html += `<div style="margin-bottom:8px"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:4px">Ψ-Dimensionen</div><div style="display:flex;flex-wrap:wrap;gap:4px">${tags.psi_dimensions.map(p=>`<span style="padding:3px 10px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);border-radius:6px;font-size:10px;color:#a78bfa" title="${psiNames[p]||''}">Ψ${p} ${psiNames[p]||''}</span>`).join('')}</div></div>`;
+                }
+
+                // Behavioral mechanisms
+                if (tags.behavioral_mechanisms?.length) {
+                    html += `<div style="margin-bottom:8px"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:4px">Behavioral Mechanisms</div><div style="display:flex;flex-wrap:wrap;gap:4px">${tags.behavioral_mechanisms.map(m=>`<span style="padding:3px 10px;background:rgba(42,127,142,0.1);border:1px solid rgba(42,127,142,0.25);border-radius:6px;font-size:10px;color:var(--accent)">${m.replace(/_/g,' ')}</span>`).join('')}</div></div>`;
+                }
+
+                // BCM Dimensions
+                if (tags.bcm_dimensions?.length) {
+                    html += `<div style="margin-bottom:8px"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:4px">BCM Dimensions</div><div style="display:flex;flex-wrap:wrap;gap:4px">${tags.bcm_dimensions.map(d=>`<span style="padding:3px 10px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:6px;font-size:10px;color:#fbbf24">${d.replace(/_/g,' ')}</span>`).join('')}</div></div>`;
+                }
+
+                // Links
+                html += `<div style="display:flex;gap:12px;margin-top:10px;font-size:11px">`;
+                if (d.review_id) html += `<a href="#" onclick="viewDocument('${d.review_id}');return false" style="color:#a78bfa;text-decoration:none">📖 Vollständiges Review anzeigen</a>`;
+                if (d.github?.url) html += `<a href="${d.github.url}" target="_blank" style="color:var(--accent);text-decoration:none">🔗 GitHub</a>`;
+                html += `</div>`;
+
+                reviewEl.innerHTML = html;
+                showToast(`BEATRIX Review: ${d.score}/100 – ${d.verdict}`, 'success');
+                if (btn) { btn.disabled = false; btn.innerHTML = '🧠 BEATRIX Review'; }
+
+            } catch(e) {
+                reviewEl.innerHTML = `<div style="color:#ef4444;font-size:12px">❌ Review fehlgeschlagen: ${e.message?.slice(0,200)}</div>`;
+                showToast(`Review-Fehler: ${e.message?.slice(0,100)}`, 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '🧠 BEATRIX Review'; }
             }
         }
 
