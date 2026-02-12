@@ -4651,40 +4651,56 @@
 
             // Replace challenge button with loading
             const challengeBtn = msgEl.querySelector('[onclick*="challengeAnswer"]');
-            if (challengeBtn) challengeBtn.outerHTML = '<span style="font-size:10px;color:#ff8c00">⏳ 5 Reviewer challengen...</span>';
+            if (challengeBtn) challengeBtn.outerHTML = `<div style="margin-top:8px;padding:10px 14px;background:rgba(255,140,0,0.04);border:1px solid rgba(255,140,0,0.1);border-radius:8px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <div class="loading-spinner" style="width:14px;height:14px;border-width:2px"></div>
+                    <span style="font-size:10px;color:#ff8c00;font-weight:600">5 ECHTE MODELLE CHALLENGEN UNABHÄNGIG...</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px" id="challengeStatus_${msgId}">
+                    <span style="padding:2px 8px;border-radius:4px;font-size:9px;background:rgba(139,92,246,0.1);color:#a78bfa">🧠 Sonnet ⏳</span>
+                    <span style="padding:2px 8px;border-radius:4px;font-size:9px;background:rgba(59,130,246,0.1);color:#60a5fa">🔬 GPT ⏳</span>
+                    <span style="padding:2px 8px;border-radius:4px;font-size:9px;background:rgba(251,146,60,0.1);color:#fb923c">🦊 Grok ⏳</span>
+                    <span style="padding:2px 8px;border-radius:4px;font-size:9px;background:rgba(52,211,153,0.1);color:#34d399">💼 Gemini ⏳</span>
+                    <span style="padding:2px 8px;border-radius:4px;font-size:9px;background:rgba(234,179,8,0.1);color:#eab308">⚡ Haiku ⏳</span>
+                </div>
+            </div>`;
 
             try {
-                const r = await fetch(`${API}/chat`, {
+                const r = await fetch(`${API}/challenge`, {
                     method: 'POST', headers: {...H(), 'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                        message: `Du bist ein APE-Review-Panel aus 5 unabhängigen Perspektiven. Challenge diese BEATRIX-Antwort kritisch:
-
----
-${originalText.slice(0,3000)}
----
-
-Antworte mit GENAU diesem Format:
-🧠 **BEATRIX (Behavioral):** [Was fehlt an Verhaltensökonomie?]
-🔬 **Methodologist:** [Welche Evidenz fehlt? Welche Annahmen sind fragwürdig?]
-🦊 **Skeptic:** [Was ist die einfachste alternative Erklärung?]
-💼 **Practitioner:** [Ist das umsetzbar? Was würde ein CEO fragen?]
-⚡ **Contrarian:** [Was wenn das Gegenteil stimmt?]
-
-🔄 **Synthese:** [Wo sind sich alle einig? Was sollte ergänzt werden?]`,
-                        session_id: chatSessionId
-                    })
+                    body: JSON.stringify({ text: originalText.slice(0, 4000) })
                 });
-                if (!r.ok) throw new Error('Challenge failed');
+                if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || 'Challenge failed');
                 const d = await r.json();
-                const challengeHtml = `<div style="margin-top:12px;padding:14px;background:rgba(255,140,0,0.04);border:1px solid rgba(255,140,0,0.12);border-radius:10px">
-                    <div style="font-size:10px;color:#ff8c00;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">🔥 APE Challenge Panel</div>
-                    <div style="font-size:12px;color:var(--text-secondary);line-height:1.7">${formatMessage(d.response)}</div>
-                </div>`;
-                const loadingEl = msgEl.querySelector('span[style*="ff8c00"]');
-                if (loadingEl) loadingEl.outerHTML = challengeHtml;
+
+                let html = `<div style="margin-top:8px;padding:14px;background:rgba(255,140,0,0.04);border:1px solid rgba(255,140,0,0.12);border-radius:10px">
+                    <div style="font-size:10px;color:#ff8c00;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">🔥 APE CHALLENGE – ${d.models_used} ECHTE MODELLE</div>`;
+
+                for (const [key, ch] of Object.entries(d.challenges || {})) {
+                    html += `<div style="margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.15);border-radius:8px;border-left:2px solid rgba(255,140,0,0.3)">
+                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">${ch.icon} <strong>${ch.name}</strong> <span style="opacity:0.4">${ch.model}</span></div>
+                        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${formatMessage(ch.challenge)}</div>
+                    </div>`;
+                }
+
+                if (d.errors && Object.keys(d.errors).length) {
+                    html += `<div style="font-size:9px;color:var(--text-muted);margin-bottom:6px">Nicht verfügbar: ${Object.keys(d.errors).join(', ')}</div>`;
+                }
+
+                if (d.synthesis) {
+                    html += `<div style="margin-top:8px;padding:10px 12px;background:rgba(255,140,0,0.06);border-radius:8px">
+                        <div style="font-size:10px;color:#ff8c00;font-weight:600;margin-bottom:4px">🔄 SYNTHESE</div>
+                        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${formatMessage(d.synthesis)}</div>
+                    </div>`;
+                }
+
+                html += `</div>`;
+
+                const statusEl = document.getElementById('challengeStatus_' + msgId);
+                if (statusEl) statusEl.closest('div[style*="rgba(255,140,0"]').outerHTML = html;
             } catch(e) {
-                const loadingEl = msgEl.querySelector('span[style*="ff8c00"]');
-                if (loadingEl) loadingEl.outerHTML = `<span style="font-size:10px;color:#ef4444">❌ Challenge fehlgeschlagen</span>`;
+                const statusEl = document.getElementById('challengeStatus_' + msgId);
+                if (statusEl) statusEl.closest('div[style*="rgba(255,140,0"]').outerHTML = `<span style="font-size:10px;color:#ef4444">❌ Challenge fehlgeschlagen: ${e.message?.slice(0,100)}</span>`;
             }
         }
 
