@@ -9979,6 +9979,41 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             el.style.height = Math.min(el.scrollHeight, 120) + 'px';
         }
 
+        /**
+         * Generate canonical filename for papers/books/studies.
+         * MUST match backend generate_canonical_key() exactly.
+         * Format: [TYPE]_Author_Year_Short-Title.ext
+         */
+        function generateCanonicalKey(author, year, title, docType = 'PAP', ext = 'pdf') {
+            // Clean author
+            let a = (author || 'Unknown').trim()
+                .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue')
+                .replace(/Ä/g,'Ae').replace(/Ö/g,'Oe').replace(/Ü/g,'Ue')
+                .replace(/ß/g,'ss').replace(/[^A-Za-z]/g, '');
+            if (a) a = a[0].toUpperCase() + a.slice(1);
+            if (!a) a = 'Unknown';
+
+            // Clean year
+            let y = (year || '0000').trim().slice(0,4);
+            if (!/^\d{4}$/.test(y)) y = '0000';
+
+            // Clean title: first 5 meaningful words, hyphenated
+            let t = (title || 'Untitled').trim().replace(/[^\w\s-]/g, '');
+            const stop = new Set(['a','an','the','of','in','on','at','to','for','and','or','is','are','was','by','with','from','der','die','das','und','oder','ein','eine','von','zu','im','am','des','den','dem','für','als','auf','nach','über','bei','mit']);
+            let words = t.split(/\s+/).filter(w => w);
+            let meaningful = words.filter(w => !stop.has(w.toLowerCase()));
+            if (!meaningful.length) meaningful = words.slice(0,5);
+            let shortTitle = meaningful.slice(0,5).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+            if (shortTitle.length > 60) shortTitle = shortTitle.slice(0,60).replace(/-[^-]*$/, '');
+            if (!shortTitle) shortTitle = 'Untitled';
+
+            // Clean type and ext
+            let dtype = (docType || 'PAP').toUpperCase().slice(0,4);
+            let e = (ext || 'pdf').toLowerCase().replace(/^\./, '');
+
+            return `${dtype}_${a}_${y}_${shortTitle}.${e}`;
+        }
+
         function formatMessage(text) {
             // Use full markdown renderer
             return mbRenderMd(text);
