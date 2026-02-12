@@ -2486,8 +2486,11 @@
                             <div id="prjLandingData" style="display:flex;flex-direction:column;gap:8px"></div>
                         </div>
                     </div>
-                    <div id="prjLandingOtherSection" style="margin-top:20px;display:none">
-                        <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Weitere Projekte mit diesem Kunden</div>
+                    <div id="prjLandingOtherSection" style="margin-top:20px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                            <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px">🔗 Verknüpfte Projekte</div>
+                            <button onclick="prjLinkProjectStart()" style="font-size:10px;padding:3px 10px;background:rgba(42,127,142,0.08);border:1px solid rgba(42,127,142,0.2);border-radius:6px;color:var(--accent);cursor:pointer;font-family:inherit">+ Projekt verknüpfen</button>
+                        </div>
                         <div id="prjLandingOther" style="background:var(--navy-card);border:1px solid var(--border);border-radius:12px;overflow:hidden"></div>
                     </div>
 
@@ -8086,28 +8089,230 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
             document.getElementById('prjLandingData').innerHTML = projHtml;
 
-            // ── Other Projects ──
+            // ── Other Projects (same customer) + Manual Links ──
             const other = d.other_projects || [];
+            const manualLinks = d.linked_projects || [];
             const otherSection = document.getElementById('prjLandingOtherSection');
-            if (other.length > 0) {
-                otherSection.style.display = '';
-                const otherStatusColors = {active:'#34d399',completed:'rgba(139,170,255,0.5)',proposal:'#fbbf24',scoping:'#fbbf24'};
-                const rows = other.map(op => {
+            const otherStatusColors = {active:'#34d399',aktiv:'#34d399',completed:'rgba(139,170,255,0.5)',planning:'#fbbf24',proposal:'#fbbf24',scoping:'#fbbf24'};
+            const otherStatusLabels = {active:'Aktiv',aktiv:'Aktiv',completed:'Abgeschlossen',planning:'Planung'};
+            let rows = '';
+
+            // Auto-detected: same customer (from GitHub scan)
+            const githubOther = other.filter(op => op.source === 'github');
+            if (githubOther.length > 0) {
+                rows += githubOther.map(op => {
                     const osc = otherStatusColors[op.status] || 'rgba(255,255,255,0.2)';
-                    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.03)">
+                    const osl = otherStatusLabels[op.status] || op.status;
+                    return `<div onclick="prjOpenLanding('${op.slug||''}')" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
                         <div style="width:6px;height:6px;border-radius:50%;background:${osc};flex-shrink:0"></div>
-                        <div style="flex:1;font-size:13px;color:rgba(255,255,255,0.6)">${op.name}</div>
-                        <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${osc}15;color:${osc};border:1px solid ${osc}30">${op.status}</span>
-                        ${op.deliverables_count ? `<span style="font-size:10px;color:rgba(255,255,255,0.2)">${op.deliverables_count} Deliv.</span>` : ''}
+                        ${op.project_code ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.06);color:var(--accent-light);font-family:monospace;font-weight:700">${op.project_code}</span>` : ''}
+                        <div style="flex:1;font-size:13px;color:white;font-weight:500">${op.name}</div>
+                        <span style="font-size:9px;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.3)">gleicher Kunde</span>
+                        <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${osc}15;color:${osc};border:1px solid ${osc}30">${osl}</span>
                     </div>`;
                 }).join('');
-                document.getElementById('prjLandingOther').innerHTML = rows;
-            } else {
-                otherSection.style.display = 'none';
             }
+
+            // CRM-sourced other projects (from leads, no slug)
+            const crmOther = other.filter(op => op.source !== 'github');
+            if (crmOther.length > 0) {
+                rows += crmOther.map(op => {
+                    const osc = otherStatusColors[op.status] || 'rgba(255,255,255,0.2)';
+                    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.03);opacity:0.5">
+                        <div style="width:6px;height:6px;border-radius:50%;background:${osc};flex-shrink:0"></div>
+                        <div style="flex:1;font-size:13px;color:rgba(255,255,255,0.5)">${op.name}</div>
+                        <span style="font-size:9px;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.2)">CRM</span>
+                    </div>`;
+                }).join('');
+            }
+
+            // Manually linked projects
+            if (manualLinks.length > 0) {
+                rows += manualLinks.map(link => {
+                    const linkType = link.type || 'related';
+                    const typeLabels = {predecessor:'Vorgänger',successor:'Nachfolger',related:'Verwandt',reference:'Referenz',parent:'Hauptprojekt',child:'Teilprojekt'};
+                    const typeIcons = {predecessor:'⬅️',successor:'➡️',related:'🔗',reference:'📚',parent:'🏠',child:'📁'};
+                    const lsc = otherStatusColors[link.status] || 'rgba(255,255,255,0.2)';
+                    const lsl = otherStatusLabels[link.status] || link.status || '';
+                    return `<div onclick="prjOpenLanding('${link.slug||''}')" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                        <div style="font-size:12px">${typeIcons[linkType]||'🔗'}</div>
+                        ${link.project_code ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.06);color:var(--accent-light);font-family:monospace;font-weight:700">${link.project_code}</span>` : ''}
+                        <div style="flex:1;font-size:13px;color:white;font-weight:500">${link.name||link.slug||'–'}</div>
+                        ${link.note ? `<span style="font-size:9px;color:rgba(255,255,255,0.2)" title="${link.note}">💬</span>` : ''}
+                        <span style="font-size:9px;padding:2px 8px;border-radius:6px;background:rgba(42,127,142,0.08);color:rgba(42,127,142,0.6);border:1px solid rgba(42,127,142,0.15)">${typeLabels[linkType]||linkType}</span>
+                        ${lsl ? `<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${lsc}15;color:${lsc};border:1px solid ${lsc}30">${lsl}</span>` : ''}
+                        <button onclick="event.stopPropagation();prjUnlinkProject('${link.slug}')" style="font-size:9px;background:none;border:none;color:rgba(255,255,255,0.15);cursor:pointer;padding:2px" title="Verknüpfung lösen">✕</button>
+                    </div>`;
+                }).join('');
+            }
+
+            if (!rows) {
+                rows = '<div style="padding:16px;text-align:center;font-size:12px;color:rgba(255,255,255,0.2)">Noch keine verknüpften Projekte. Klicke „+ Projekt verknüpfen" um Zusammenhänge herzustellen.</div>';
+            }
+            document.getElementById('prjLandingOther').innerHTML = rows;
         }
 
         let prjActiveTab = 'overview';
+
+        // ── PROJECT LINKING ──
+        let _prjLinkAllProjects = [];
+
+        async function prjLinkProjectStart() {
+            if (!prjCurrentSlug) return;
+            // Load all projects for selection
+            try {
+                const resp = await fetch(`${API}/projects`, { headers: H() });
+                _prjLinkAllProjects = resp.ok ? await resp.json() : [];
+            } catch(e) { _prjLinkAllProjects = []; }
+
+            // Get already-linked slugs to exclude
+            const alreadyLinked = new Set();
+            alreadyLinked.add(prjCurrentSlug);
+            (prjLandingData?.linked_projects || []).forEach(l => alreadyLinked.add(l.slug));
+            (prjLandingData?.other_projects || []).filter(o => o.slug).forEach(o => alreadyLinked.add(o.slug));
+
+            const available = _prjLinkAllProjects.filter(p => !alreadyLinked.has(p.slug));
+
+            const statusColors = {active:'#34d399',aktiv:'#34d399',planning:'#fbbf24',completed:'rgba(139,170,255,0.5)'};
+            const typeOptions = `
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+                    <button class="prj-link-type-btn selected" data-type="predecessor" onclick="prjLinkTypeSelect(this)" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(42,127,142,0.3);background:rgba(42,127,142,0.15);color:var(--accent-light);cursor:pointer;font-family:inherit">⬅️ Vorgänger</button>
+                    <button class="prj-link-type-btn" data-type="successor" onclick="prjLinkTypeSelect(this)" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;font-family:inherit">➡️ Nachfolger</button>
+                    <button class="prj-link-type-btn" data-type="related" onclick="prjLinkTypeSelect(this)" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;font-family:inherit">🔗 Verwandt</button>
+                    <button class="prj-link-type-btn" data-type="reference" onclick="prjLinkTypeSelect(this)" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;font-family:inherit">📚 Referenz</button>
+                    <button class="prj-link-type-btn" data-type="parent" onclick="prjLinkTypeSelect(this)" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;font-family:inherit">🏠 Hauptprojekt</button>
+                    <button class="prj-link-type-btn" data-type="child" onclick="prjLinkTypeSelect(this)" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;font-family:inherit">📁 Teilprojekt</button>
+                </div>`;
+
+            const projectList = available.length === 0
+                ? '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.3);font-size:12px">Keine weiteren Projekte verfügbar.</div>'
+                : available.map(p => {
+                    const sc = statusColors[p.status] || 'rgba(255,255,255,0.2)';
+                    return `<div class="prj-link-item" data-slug="${p.slug}" data-name="${(p.name||'').toLowerCase()} ${(p.project_code||'').toLowerCase()} ${(p.customer_name||'').toLowerCase()}" onclick="prjLinkSelect(this,'${p.slug}')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;transition:background 0.15s;border-radius:6px" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="if(!this.classList.contains('selected'))this.style.background='transparent'">
+                        <div style="width:6px;height:6px;border-radius:50%;background:${sc};flex-shrink:0"></div>
+                        ${p.project_code ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.06);color:var(--accent-light);font-family:monospace;font-weight:700">${p.project_code}</span>` : ''}
+                        <div style="flex:1;min-width:0">
+                            <div style="font-size:13px;color:white;font-weight:500">${p.name||p.slug}</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.3)">${p.customer_name||''}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+
+            // Show modal
+            const modal = document.createElement('div');
+            modal.id = 'prjLinkModal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px';
+            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+            modal.innerHTML = `
+                <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:16px;width:min(560px,95vw);max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+                    <div style="padding:20px 20px 0;flex-shrink:0">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                            <h3 style="font-size:16px;font-weight:700;color:white;margin:0">🔗 Projekt verknüpfen</h3>
+                            <button onclick="document.getElementById('prjLinkModal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;padding:4px">✕</button>
+                        </div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:12px">Art der Verknüpfung:</div>
+                        ${typeOptions}
+                        <input id="prjLinkSearch" type="text" placeholder="Projekt suchen…" oninput="prjLinkFilter(this.value)" style="width:100%;box-sizing:border-box;padding:10px 14px;background:var(--navy-light);border:1px solid var(--border);border-radius:8px;color:white;font-size:13px;margin-bottom:4px;font-family:inherit">
+                        <input id="prjLinkNote" type="text" placeholder="Optionale Notiz zur Verknüpfung…" style="width:100%;box-sizing:border-box;padding:8px 14px;background:var(--navy-light);border:1px solid var(--border);border-radius:8px;color:white;font-size:12px;margin-top:6px;margin-bottom:8px;font-family:inherit;color:rgba(255,255,255,0.5)">
+                    </div>
+                    <div id="prjLinkList" style="flex:1;overflow-y:auto;padding:8px 20px 20px;min-height:100px;max-height:400px">
+                        ${projectList}
+                    </div>
+                    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
+                        <button onclick="document.getElementById('prjLinkModal').remove()" style="padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-secondary);font-size:12px;cursor:pointer;font-family:inherit">Abbrechen</button>
+                        <button id="prjLinkConfirmBtn" onclick="prjLinkConfirm()" disabled style="padding:8px 20px;border:none;border-radius:8px;background:rgba(42,127,142,0.3);color:rgba(42,127,142,0.5);font-size:12px;font-weight:600;cursor:not-allowed;font-family:inherit;transition:all 0.15s">Verknüpfen</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            document.getElementById('prjLinkSearch').focus();
+        }
+
+        let _prjLinkSelectedSlug = null;
+        let _prjLinkSelectedType = 'predecessor';
+
+        function prjLinkTypeSelect(btn) {
+            document.querySelectorAll('.prj-link-type-btn').forEach(b => {
+                b.classList.remove('selected');
+                b.style.background = 'transparent';
+                b.style.borderColor = 'var(--border)';
+                b.style.color = 'var(--text-secondary)';
+            });
+            btn.classList.add('selected');
+            btn.style.background = 'rgba(42,127,142,0.15)';
+            btn.style.borderColor = 'rgba(42,127,142,0.3)';
+            btn.style.color = 'var(--accent-light)';
+            _prjLinkSelectedType = btn.dataset.type;
+        }
+
+        function prjLinkSelect(el, slug) {
+            document.querySelectorAll('.prj-link-item').forEach(i => {
+                i.classList.remove('selected');
+                i.style.background = 'transparent';
+                i.style.outline = 'none';
+            });
+            el.classList.add('selected');
+            el.style.background = 'rgba(42,127,142,0.08)';
+            el.style.outline = '1px solid rgba(42,127,142,0.3)';
+            _prjLinkSelectedSlug = slug;
+            const btn = document.getElementById('prjLinkConfirmBtn');
+            if (btn) {
+                btn.disabled = false;
+                btn.style.background = 'linear-gradient(135deg,var(--accent),#2A7F8E)';
+                btn.style.color = 'white';
+                btn.style.cursor = 'pointer';
+            }
+        }
+
+        function prjLinkFilter(q) {
+            const query = q.toLowerCase().trim();
+            document.querySelectorAll('.prj-link-item').forEach(el => {
+                const data = el.dataset.name || '';
+                el.style.display = (!query || data.includes(query)) ? 'flex' : 'none';
+            });
+        }
+
+        async function prjLinkConfirm() {
+            if (!_prjLinkSelectedSlug || !prjCurrentSlug) return;
+            const note = document.getElementById('prjLinkNote')?.value || '';
+            const btn = document.getElementById('prjLinkConfirmBtn');
+            if (btn) { btn.textContent = 'Verknüpfe…'; btn.disabled = true; }
+
+            try {
+                const resp = await fetch(`${API}/projects/${prjCurrentSlug}/link`, {
+                    method: 'POST', headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify({ target_slug: _prjLinkSelectedSlug, type: _prjLinkSelectedType, note })
+                });
+                const res = await resp.json();
+                if (resp.ok) {
+                    showToast(`✅ Projekt verknüpft (${_prjLinkSelectedType})`, 'success');
+                    document.getElementById('prjLinkModal')?.remove();
+                    // Reload landing to show updated links
+                    prjOpenLanding(prjCurrentSlug);
+                } else {
+                    showToast('❌ ' + (res.error || res.detail || 'Fehler'), 'error');
+                    if (btn) { btn.textContent = 'Verknüpfen'; btn.disabled = false; }
+                }
+            } catch(e) {
+                showToast('❌ ' + e.message, 'error');
+                if (btn) { btn.textContent = 'Verknüpfen'; btn.disabled = false; }
+            }
+        }
+
+        async function prjUnlinkProject(targetSlug) {
+            if (!prjCurrentSlug || !targetSlug) return;
+            if (!confirm(`Verknüpfung zu "${targetSlug}" wirklich lösen?`)) return;
+            try {
+                const resp = await fetch(`${API}/projects/${prjCurrentSlug}/link/${targetSlug}`, {
+                    method: 'DELETE', headers: H()
+                });
+                if (resp.ok) {
+                    showToast('Verknüpfung gelöst', 'success');
+                    prjOpenLanding(prjCurrentSlug);
+                } else {
+                    showToast('❌ Fehler beim Lösen', 'error');
+                }
+            } catch(e) { showToast('❌ ' + e.message, 'error'); }
+        }
 
         function prjSwitchMainTab(tab) {
             // Main tabs: overview, inhalt, pm
