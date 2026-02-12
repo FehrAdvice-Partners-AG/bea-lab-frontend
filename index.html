@@ -736,6 +736,12 @@
                 </div>
             </div>
             <div class="chat-input-area">
+                <div id="chatSessionBar" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:4px 0 6px;flex-wrap:wrap">
+                    <span id="chatSessionBadge2" style="font-size:10px;color:var(--text-muted);font-family:monospace;background:rgba(255,255,255,0.04);padding:2px 8px;border-radius:4px;cursor:pointer" title="Session-Verlauf anzeigen" onclick="toggleSessionHistory()"></span>
+                    <button onclick="showSessionTypePicker(this)" style="font-size:10px;padding:2px 8px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.15);border-radius:4px;color:rgba(42,127,142,0.6);cursor:pointer;font-family:inherit" title="Session-Typ wechseln">🏷 Projekt</button>
+                    <button onclick="startNewChatSession()" style="font-size:10px;padding:2px 8px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.15);border-radius:4px;color:rgba(42,127,142,0.6);cursor:pointer;font-family:inherit">+ Neuer Chat</button>
+                    <button id="btnCloseSession2" onclick="closeCurrentSession()" style="font-size:10px;padding:2px 8px;background:rgba(220,80,80,0.05);border:1px solid rgba(220,80,80,0.12);border-radius:4px;color:rgba(220,130,130,0.5);cursor:pointer;display:none;font-family:inherit">✕ Session schliessen</button>
+                </div>
                 <div id="prjChatIndicator" style="padding:6px 14px;margin-bottom:6px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.15);border-radius:8px;font-size:11px;color:rgba(42,127,142,0.7)">
                     💡 <strong>BEATRIX Command Mode</strong> – Projekte, Leads, Modelle, Kontext per Sprache.
                     <span onclick="toggleBxCmd()" style="cursor:pointer;margin-left:8px;color:rgba(255,255,255,0.3)">✕</span>
@@ -10038,6 +10044,8 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         function updateSessionBadge() {
             const badge = document.getElementById('chatSessionBadge');
             if (badge) badge.textContent = chatSessionId;
+            const badge2 = document.getElementById('chatSessionBadge2');
+            if (badge2) badge2.textContent = chatSessionId ? `📜 ${chatSessionId.slice(0,12)}` : '';
             updateSessionTypeBadge();
             saveSessionToStorage();
         }
@@ -10103,9 +10111,11 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
         function updateCloseSessionBtn() {
             const btn = document.getElementById('btnCloseSession');
-            if (!btn) return;
+            const btn2 = document.getElementById('btnCloseSession2');
             const msgs = document.querySelectorAll('#chatMessages .chat-msg.user, #chatMessages .chat-msg.assistant');
-            btn.style.display = msgs.length > 0 ? 'inline-block' : 'none';
+            const show = msgs.length > 0 ? 'inline-block' : 'none';
+            if (btn) btn.style.display = show;
+            if (btn2) btn2.style.display = show;
         }
 
         // ── SESSION HISTORY ──
