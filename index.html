@@ -9738,18 +9738,30 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 });
                 const data = await r.json();
                 if (data.ok) {
-                    btn.textContent = '✅ Hochgeladen!';
+                    btn.textContent = '✅ In DB!';
                     btn.style.background = 'rgba(52,211,153,0.2)';
-                    showToast(`✅ ${data.filename} (${(data.size/1024).toFixed(0)} KB) → GitHub hochgeladen!`, 'success');
-                    // Show GitHub link
-                    if (data.html_url) {
+                    const sizeKB = (data.size/1024).toFixed(0);
+                    const paperInfo = data.is_paper ? `📚 Paper (Score: ${data.paper_score})` : '📄 Dokument';
+                    const extractInfo = data.extracted ? ` → ${data.extracted.author} (${data.extracted.year})` : '';
+                    showToast(`✅ ${data.filename}\n${paperInfo}${extractInfo}\n${sizeKB} KB | ${(data.text_length/1000).toFixed(0)}k Zeichen | ${data.status}`, 'success');
+                    // Show details below button
+                    const info = document.createElement('div');
+                    info.style.cssText = 'margin-top:4px;font-size:10px;color:rgba(52,211,153,0.5);line-height:1.4';
+                    info.innerHTML = `✅ DB + GitHub + Embedding<br>${data.extracted ? data.extracted.author + ' (' + data.extracted.year + ')' : ''}`;
+                    if (data.github_url || data.html_url) {
                         const link = document.createElement('a');
-                        link.href = data.html_url;
+                        link.href = data.github_url || data.html_url;
                         link.target = '_blank';
-                        link.style.cssText = 'display:inline-block;margin-left:8px;font-size:10px;color:rgba(52,211,153,0.7);text-decoration:none';
+                        link.style.cssText = 'display:inline;margin-left:4px;font-size:10px;color:rgba(52,211,153,0.7);text-decoration:none';
                         link.textContent = '↗ GitHub';
-                        btn.parentNode.appendChild(link);
+                        info.appendChild(link);
                     }
+                    btn.parentNode.appendChild(info);
+                } else if (data.duplicate) {
+                    btn.textContent = '⚠️ Duplikat';
+                    btn.style.background = 'rgba(251,191,36,0.2)';
+                    btn.style.color = 'rgba(251,191,36,0.8)';
+                    showToast(`⚠️ Bereits vorhanden: ${data.title || 'Dokument'}\n${data.message || ''}`, 'info');
                 } else {
                     throw new Error(data.detail || 'Upload fehlgeschlagen');
                 }
