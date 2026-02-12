@@ -780,7 +780,7 @@
                 <div id="fileMetaFields" style="margin-top:16px">
                     <div class="input-group"><label>Titel</label><input type="text" class="input-field" id="fileTitle" placeholder="Wird automatisch erkannt..."></div>
                     <div class="input-row">
-                        <div class="input-group"><label>Kategorie</label><select class="input-field" id="fileCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="note">Notiz</option></select></div>
+                        <div class="input-group"><label>Kategorie</label><select class="input-field" id="fileCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="book">Buch</option><option value="note">Notiz</option></select></div>
                         <div class="input-group"><label>Sprache</label><select class="input-field" id="fileLang"><option value="de">Deutsch</option><option value="en">English</option></select></div>
                     </div>
                     <div class="input-group"><label>Tags</label><div class="tag-container" id="fileTagContainer" onclick="this.querySelector('.tag-input').focus()"><input type="text" class="tag-input" id="fileTagInput" placeholder="Tag eingeben + Enter"></div></div>
@@ -801,7 +801,7 @@
                 </div>
                 <div class="input-group"><label>Titel</label><input type="text" class="input-field" id="textTitle" placeholder="Wird automatisch erkannt..."></div>
                 <div class="input-row">
-                    <div class="input-group"><label>Kategorie</label><select class="input-field" id="textCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="note">Notiz</option></select></div>
+                    <div class="input-group"><label>Kategorie</label><select class="input-field" id="textCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="book">Buch</option><option value="note">Notiz</option></select></div>
                     <div class="input-group"><label>Sprache</label><select class="input-field" id="textLang"><option value="de">Deutsch</option><option value="en">English</option></select></div>
                 </div>
                 <div class="input-group"><label>Tags</label><div class="tag-container" id="tagContainer" onclick="this.querySelector('.tag-input').focus()"><input type="text" class="tag-input" id="tagInput" placeholder="Tag eingeben + Enter"></div></div>
@@ -3431,6 +3431,51 @@
         }
 
         function renderAnalysisPreviewHtml(d) {
+            // ── BOOK detected ──
+            if (d.book_detected) {
+                const bm = d.book_meta || {};
+                const isbn = d.isbn || '';
+                let metaHtml = '';
+                const parts = [];
+                if (bm.authors?.length) parts.push(`✍️ ${bm.authors.join(', ')}`);
+                if (bm.publisher) parts.push(`📚 ${bm.publisher}`);
+                if (bm.publish_date) parts.push(`📅 ${bm.publish_date}`);
+                if (bm.pages) parts.push(`📄 ${bm.pages} Seiten`);
+                if (parts.length) metaHtml = `<div style="margin-top:8px;font-size:12px;color:var(--text-secondary);display:flex;flex-wrap:wrap;gap:12px">${parts.join(' · ')}</div>`;
+
+                let isbnHtml = '';
+                if (isbn) {
+                    isbnHtml = `<div style="margin-top:8px;padding:8px 14px;background:rgba(0,0,0,0.15);border-radius:10px;display:flex;align-items:center;gap:10px">
+                        <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">ISBN</span>
+                        <code style="font-size:13px;color:#34d399;font-family:'JetBrains Mono',monospace">${isbn}</code>
+                        ${d.isbn_data?.cover_url ? `<img src="${d.isbn_data.cover_url}" style="height:40px;border-radius:3px;margin-left:auto" alt="Cover">` : ''}
+                    </div>`;
+                }
+
+                const signalTags = d.book_signals?.length
+                    ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${d.book_signals.map(s => `<span style="padding:1px 6px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:4px;font-size:10px">${s}</span>`).join('')}</div>`
+                    : '';
+                const summaryHtml = d.summary
+                    ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(255,255,255,0.02);border-radius:8px;font-style:italic;color:var(--text-secondary);font-size:12px">${d.summary}</div>`
+                    : '';
+                const fileInfo = d.filename
+                    ? `${d.filename} · ${d.chars?.toLocaleString() || '?'} Zeichen`
+                    : `${d.chars?.toLocaleString() || '?'} Zeichen`;
+
+                return `
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                        <span style="font-size:18px">📖</span>
+                        <div>
+                            <span style="color:#f59e0b;font-weight:600">Buch erkannt</span> (Score: ${d.book_score})
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${fileInfo}</div>
+                        </div>
+                    </div>
+                    ${signalTags}${metaHtml}${isbnHtml}${summaryHtml}
+                    <div style="margin-top:8px;font-size:11px;color:#f59e0b">→ Wird in die Knowledge Base aufgenommen (kein GitHub-Push)</div>
+                `;
+            }
+
+            // ── PAPER or normal document ──
             const paperIcon = d.paper_detected ? '📚' : '📄';
             const paperLabel = d.paper_detected
                 ? `<span style="color:#34d399;font-weight:600">Wissenschaftliches Paper erkannt</span> (Score: ${d.paper_score})`
