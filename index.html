@@ -820,7 +820,7 @@
     </section>
 
     <section class="section" id="documents-section">
-        <div class="container"><div class="section-header" style="display:flex;justify-content:space-between;align-items:center"><div><h2>Dokumente</h2><p>Übersicht aller indexierten Dokumente in der BEATRIX Knowledge Base.</p></div><button onclick="bulkClassifyDocs()" style="padding:8px 16px;background:rgba(42,127,142,0.12);border:1px solid rgba(42,127,142,0.3);border-radius:10px;color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap" id="bulkClassifyBtn">🧬 Alle klassifizieren</button></div>
+        <div class="container"><div class="section-header" style="display:flex;justify-content:space-between;align-items:center"><div><h2>Dokumente</h2><p>Übersicht aller indexierten Dokumente in der BEATRIX Knowledge Base.</p></div><div style="display:flex;gap:8px"><button onclick="bulkApeReview()" style="padding:8px 16px;background:rgba(255,140,0,0.12);border:1px solid rgba(255,140,0,0.3);border-radius:10px;color:#ff8c00;font-size:12px;cursor:pointer;white-space:nowrap" id="bulkApeBtn">🔥 Alle APE-reviewen</button><button onclick="bulkClassifyDocs()" style="padding:8px 16px;background:rgba(42,127,142,0.12);border:1px solid rgba(42,127,142,0.3);border-radius:10px;color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap" id="bulkClassifyBtn">🧬 Alle klassifizieren</button></div></div>
         <div id="docFilterBar" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap"></div>
         <div id="docTableWrapper"></div></div>
     </section>
@@ -3995,8 +3995,12 @@
                         setTimeout(() => {
                             const m = document.getElementById('uploadProgressModal');
                             if (!m) return;
+                            const docId = result?.id || result?.document_id || '';
                             m.querySelector('div > div').innerHTML += `
-                                <div style="margin-top:20px;animation:fadeIn 0.3s ease">
+                                <div style="margin-top:20px;animation:fadeIn 0.3s ease;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                                    ${docId ? `<button onclick="document.getElementById('uploadProgressModal').remove();viewDocument('${docId}');setTimeout(()=>apeReviewDocument(),500)" style="padding:10px 24px;border-radius:10px;border:none;background:rgba(255,140,0,0.15);color:#ff8c00;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(255,140,0,0.25)'" onmouseleave="this.style.background='rgba(255,140,0,0.15)'">
+                                        🔥 Jetzt APE-reviewen
+                                    </button>` : ''}
                                     <button onclick="document.getElementById('uploadProgressModal').remove();files=[];renderFileList();updateCount();document.getElementById('fileAnalysisPreview').style.display='none';document.getElementById('fileMetaFields').style.display='';document.getElementById('fileTitle').value='';document.getElementById('fileCategory').value='general';document.getElementById('fileLang').value='de';fileTags=[];renderFileTags();loadStats();" style="padding:10px 32px;border-radius:10px;border:none;background:rgba(52,211,153,0.15);color:rgba(52,211,153,0.95);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(52,211,153,0.25)'" onmouseleave="this.style.background='rgba(52,211,153,0.15)'">
                                         Weiter arbeiten
                                     </button>
@@ -4636,6 +4640,75 @@
                 showToast(`APE Review Fehler`, 'error');
             }
             if (btn) { btn.disabled = false; btn.innerHTML = '🔥 APE Review'; }
+        }
+
+        async function challengeAnswer(msgId) {
+            const msgEl = document.getElementById(msgId);
+            if (!msgEl) return;
+            const bodyEl = msgEl.querySelector('.chat-msg-body');
+            const originalText = bodyEl.innerText.replace(/🔥 Challenge$/,'').trim();
+            if (!originalText || originalText.length < 20) return;
+
+            // Replace challenge button with loading
+            const challengeBtn = msgEl.querySelector('[onclick*="challengeAnswer"]');
+            if (challengeBtn) challengeBtn.outerHTML = '<span style="font-size:10px;color:#ff8c00">⏳ 5 Reviewer challengen...</span>';
+
+            try {
+                const r = await fetch(`${API}/chat`, {
+                    method: 'POST', headers: {...H(), 'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        message: `Du bist ein APE-Review-Panel aus 5 unabhängigen Perspektiven. Challenge diese BEATRIX-Antwort kritisch:
+
+---
+${originalText.slice(0,3000)}
+---
+
+Antworte mit GENAU diesem Format:
+🧠 **BEATRIX (Behavioral):** [Was fehlt an Verhaltensökonomie?]
+🔬 **Methodologist:** [Welche Evidenz fehlt? Welche Annahmen sind fragwürdig?]
+🦊 **Skeptic:** [Was ist die einfachste alternative Erklärung?]
+💼 **Practitioner:** [Ist das umsetzbar? Was würde ein CEO fragen?]
+⚡ **Contrarian:** [Was wenn das Gegenteil stimmt?]
+
+🔄 **Synthese:** [Wo sind sich alle einig? Was sollte ergänzt werden?]`,
+                        session_id: chatSessionId
+                    })
+                });
+                if (!r.ok) throw new Error('Challenge failed');
+                const d = await r.json();
+                const challengeHtml = `<div style="margin-top:12px;padding:14px;background:rgba(255,140,0,0.04);border:1px solid rgba(255,140,0,0.12);border-radius:10px">
+                    <div style="font-size:10px;color:#ff8c00;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">🔥 APE Challenge Panel</div>
+                    <div style="font-size:12px;color:var(--text-secondary);line-height:1.7">${formatMessage(d.response)}</div>
+                </div>`;
+                const loadingEl = msgEl.querySelector('span[style*="ff8c00"]');
+                if (loadingEl) loadingEl.outerHTML = challengeHtml;
+            } catch(e) {
+                const loadingEl = msgEl.querySelector('span[style*="ff8c00"]');
+                if (loadingEl) loadingEl.outerHTML = `<span style="font-size:10px;color:#ef4444">❌ Challenge fehlgeschlagen</span>`;
+            }
+        }
+
+        async function bulkApeReview() {
+            const btn = document.getElementById('bulkApeBtn');
+            if (!confirm('APE Review für ALLE Dokumente starten? Das kann mehrere Minuten dauern und kostet API Credits.')) return;
+            btn.disabled = true; btn.innerHTML = '⏳ Reviewe...';
+            try {
+                const r = await fetch(`${API}/documents`, {headers:H()});
+                const docs = await r.json();
+                // Filter: only docs without existing APE review
+                const toReview = docs.filter(d => !d.title?.startsWith('APE Review:') && !d.title?.startsWith('Multi-Review:'));
+                let done = 0, errors = 0;
+                for (const doc of toReview) {
+                    btn.innerHTML = `⏳ ${done+1}/${toReview.length}...`;
+                    try {
+                        await fetch(`${API}/documents/${doc.id}/ape-review`, {method:'POST',headers:H(),body:JSON.stringify({})});
+                        done++;
+                    } catch(e) { errors++; }
+                }
+                showToast(`APE Review: ${done} ✅, ${errors} ❌`, done > 0 ? 'success' : 'error');
+                loadDocs();
+            } catch(e) { showToast('Bulk APE Review fehlgeschlagen', 'error'); }
+            btn.disabled = false; btn.innerHTML = '🔥 Alle APE-reviewen';
         }
 
         async function bulkClassifyDocs() {
@@ -9394,11 +9467,17 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             if (welcome) welcome.style.display = 'none';
             const container = document.getElementById('chatMessages');
             const initials = role === 'user' ? (currentUser?.name || currentUser?.email || 'U').split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) : 'B';
-            let html = `<div class="chat-msg ${role}">
+            const msgId = 'msg_' + Date.now();
+            let html = `<div class="chat-msg ${role}" id="${msgId}">
                 <div class="chat-msg-avatar">${initials}</div>
                 <div class="chat-msg-body">${formatMessage(content)}`;
             if (sources && sources.length > 0) {
                 html += `<div class="chat-sources">${sources.map(s => `<span class="chat-source-tag">${s.title}</span>`).join('')}</div>`;
+            }
+            if (role === 'assistant') {
+                html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);display:flex;gap:6px">
+                    <button onclick="challengeAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(255,140,0,0.2);background:transparent;color:rgba(255,140,0,0.5);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(255,140,0,0.1)';this.style.color='#ff8c00'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,140,0,0.5)'">🔥 Challenge</button>
+                </div>`;
             }
             html += `</div></div>`;
             container.insertAdjacentHTML('beforeend', html);
