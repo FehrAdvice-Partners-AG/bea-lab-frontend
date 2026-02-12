@@ -764,7 +764,7 @@
                 <div id="fileAnalysisPreview" style="display:none;margin-top:12px;padding:14px 18px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.2);border-radius:12px">
                     <div id="fileAnalysisContent" style="font-size:12px;color:var(--text-secondary)"></div>
                 </div>
-                <div id="fileMetaFields" style="display:none;margin-top:12px">
+                <div id="fileMetaFields" style="margin-top:12px">
                     <div class="input-group"><label>Titel</label><input type="text" class="input-field" id="fileTitle" placeholder="Wird automatisch erkannt..."></div>
                     <div class="input-row">
                         <div class="input-group"><label>Kategorie</label><select class="input-field" id="fileCategory"><option value="general">Allgemein</option><option value="axiom">Axiom</option><option value="paper">Paper</option><option value="note">Notiz</option></select></div>
@@ -3315,7 +3315,7 @@
         document.getElementById('fileInput').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value='';});
 
         function addFiles(nf) { const ok=['.pdf','.txt','.md','.docx','.csv','.json']; for(const f of nf){const ext='.'+f.name.split('.').pop().toLowerCase(); if(!ok.includes(ext)){showToast(`${f.name}: nicht unterstützt`,'error');continue;} if(f.size>50*1024*1024){showToast(`${f.name}: zu groß`,'error');continue;} files.push({file:f,status:'pending',progress:0,id:Date.now()+Math.random()});} renderFileList();updateCount(); if(files.length===1)analyzeFileContent(files[0].file); }
-        function removeFile(id) { files=files.filter(f=>f.id!==id); renderFileList();updateCount(); if(!files.length){document.getElementById('fileAnalysisPreview').style.display='none';document.getElementById('fileMetaFields').style.display='none';} }
+        function removeFile(id) { files=files.filter(f=>f.id!==id); renderFileList();updateCount(); if(!files.length){document.getElementById('fileAnalysisPreview').style.display='none';} }
         function renderFileList() { document.getElementById('fileList').innerHTML=files.map(f=>{const ext=f.file.name.split('.').pop().toLowerCase();const cls=ext==='pdf'?'pdf':ext==='md'?'md':ext==='docx'?'doc':'txt';const sz=f.file.size<1024*1024?(f.file.size/1024).toFixed(1)+' KB':(f.file.size/1024/1024).toFixed(1)+' MB';return`<div class="file-item"><div class="file-type-icon ${cls}">${ext}</div><div class="file-info"><div class="file-name">${f.file.name}</div><div class="file-meta">${sz}</div></div>${f.status==='uploading'?`<div><div class="progress-bar"><div class="progress-fill" style="width:${f.progress}%"></div></div></div>`:''}<span class="file-status ${f.status}">${f.status==='pending'?'Bereit':f.status==='uploading'?f.progress+'%':f.status==='success'?'✓ Fertig':'✗ Fehler'}</span>${f.status==='pending'?`<button class="file-remove" onclick="removeFile(${f.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''}</div>`;}).join(''); }
         function updateCount() { const el=document.getElementById('uploadCount'); el.textContent=currentTab==='file'?(files.length?`${files.length} Datei${files.length>1?'en':''}`:''):(document.getElementById('textContent').value.length?`${document.getElementById('textContent').value.length} Zeichen`:''); }
 
@@ -3496,10 +3496,8 @@
         async function analyzeFileContent(file) {
             const preview = document.getElementById('fileAnalysisPreview');
             const content = document.getElementById('fileAnalysisContent');
-            const metaFields = document.getElementById('fileMetaFields');
             preview.style.display = '';
             content.innerHTML = '<span style="animation:blink 0.8s infinite">⏳</span> BEATRIX analysiert die Datei...';
-            metaFields.style.display = 'none';
             try {
                 const fd = new FormData();
                 fd.append('file', file);
@@ -3514,7 +3512,6 @@
                 }
                 content.innerHTML = renderAnalysisPreviewHtml(d);
                 // Populate metadata fields
-                metaFields.style.display = '';
                 if (d.title) document.getElementById('fileTitle').value = d.title;
                 if (d.language) document.getElementById('fileLang').value = d.language;
                 if (d.category) document.getElementById('fileCategory').value = d.category;
@@ -8229,7 +8226,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         function showToast(msg,type='info'){const c=document.getElementById('toastContainer'),t=document.createElement('div');t.className=`toast ${type}`;t.innerHTML=`<span>${{success:'✓',error:'✗',info:'ℹ'}[type]||''}</span> ${msg}`;c.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(20px)';t.style.transition='0.3s';setTimeout(()=>t.remove(),300);},4000);}
-        function clearAll(){files=[];tags=[];fileTags=[];renderFileList();renderTags();renderFileTags();document.getElementById('textTitle').value='';document.getElementById('textContent').value='';document.getElementById('fileTitle').value='';document.getElementById('fileCategory').value='general';document.getElementById('fileLang').value='de';updateCount();lastAnalyzedLength=0;document.getElementById('textAnalysisPreview').style.display='none';document.getElementById('fileAnalysisPreview').style.display='none';document.getElementById('fileMetaFields').style.display='none';}
+        function clearAll(){files=[];tags=[];fileTags=[];renderFileList();renderTags();renderFileTags();document.getElementById('textTitle').value='';document.getElementById('textContent').value='';document.getElementById('fileTitle').value='';document.getElementById('fileCategory').value='general';document.getElementById('fileLang').value='de';updateCount();lastAnalyzedLength=0;document.getElementById('textAnalysisPreview').style.display='none';document.getElementById('fileAnalysisPreview').style.display='none';}
         document.getElementById('textContent').addEventListener('input',updateCount);
 
         // ── Admin Dashboard ──────────────────────────────
