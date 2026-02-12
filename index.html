@@ -6496,10 +6496,10 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             _regTimer = setTimeout(async () => {
                 if (_regCache[q]) { registryShowResults(_regCache[q]); return; }
                 try {
-                    const resp = await fetch(`${API}/api/registry/search?q=${encodeURIComponent(q)}&limit=8`, { headers: H() });
+                    const resp = await fetch(`${API}/registry/search?q=${encodeURIComponent(q)}&limit=8`, { headers: H() });
                     if (!resp.ok) {
                         // Fallback: try Zefix only
-                        const zResp = await fetch(`${API}/api/zefix/search?q=${encodeURIComponent(q)}&limit=8`, { headers: H() });
+                        const zResp = await fetch(`${API}/zefix/search?q=${encodeURIComponent(q)}&limit=8`, { headers: H() });
                         if (zResp.ok) {
                             const zData = await zResp.json();
                             const mapped = (zData.results||[]).map(r => ({...r, _source:'zefix', _country:'CH', _flag:'🇨🇭'}));
@@ -6601,7 +6601,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             showToast('🔍 Suche in CH+DE Registern…', 'info');
             try {
                 // Try unified search first
-                const resp = await fetch(`${API}/api/registry/search?q=${encodeURIComponent(name)}&limit=5`, { headers: H() });
+                const resp = await fetch(`${API}/registry/search?q=${encodeURIComponent(name)}&limit=5`, { headers: H() });
                 if (!resp.ok) throw new Error('Register nicht erreichbar');
                 const data = await resp.json();
                 if (!data.results?.length) { showToast('Kein Treffer für ' + name, 'warning'); return; }
@@ -6640,7 +6640,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const btn = document.getElementById('ncSaveBtn');
             btn.disabled = true; btn.textContent = 'Wird angelegt…';
             try {
-                const resp = await fetch(`${API}/api/crm/companies`, {
+                const resp = await fetch(`${API}/crm/companies`, {
                     method: 'POST', headers: { ...H(), 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name, code: document.getElementById('ncCode').value.trim(),
@@ -9951,7 +9951,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             if (!list) return;
             list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">⏳ Lade Sessions...</div>';
             try {
-                const r = await fetch(`${API}/api/chat/sessions`, {headers: H()});
+                const r = await fetch(`${API}/chat/sessions`, {headers: H()});
                 if (!r.ok) throw new Error('Fehler');
                 const sessions = await r.json();
                 if (count) count.textContent = `${sessions.length} Sessions`;
@@ -9985,7 +9985,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         + `</div>`;
                 }).join('');
             } catch(e) {
-                list.innerHTML = `<div style="text-align:center;padding:30px;color:rgba(220,80,80,0.8)">❌ ${e.message}</div>`;
+                list.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted)">📭 Noch keine abgeschlossenen Sessions</div>`;
             }
         }
         async function openSessionDetail(sid) {
@@ -9997,7 +9997,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             modal.style.display = 'block';
             msgsEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">⏳ Lade Nachrichten...</div>';
             try {
-                const r = await fetch(`${API}/api/chat/session/${sid}/messages`, {headers: H()});
+                const r = await fetch(`${API}/chat/session/${sid}/messages`, {headers: H()});
                 if (!r.ok) throw new Error('Fehler beim Laden');
                 const data = await r.json();
                 if (titleEl) titleEl.textContent = data.meta?.title || sid;
@@ -10680,7 +10680,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     notes: d.notes || '',
                     is_new_customer: d.is_new_customer !== false
                 };
-                const r = await fetch(`${API}/api/crm/companies`, {
+                const r = await fetch(`${API}/crm/companies`, {
                     method: 'POST', headers: {...H(), 'Content-Type': 'application/json'},
                     body: JSON.stringify(payload)
                 });
