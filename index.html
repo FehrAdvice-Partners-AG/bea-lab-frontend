@@ -3357,9 +3357,33 @@
         dropZone.addEventListener('drop',e=>addFiles([...e.dataTransfer.files]));
         document.getElementById('fileInput').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value='';});
 
-        function addFiles(nf) { const ok=['.pdf','.txt','.md','.docx','.csv','.json']; for(const f of nf){const ext='.'+f.name.split('.').pop().toLowerCase(); if(!ok.includes(ext)){showToast(`${f.name}: nicht unterstützt`,'error');continue;} if(f.size>50*1024*1024){showToast(`${f.name}: zu groß`,'error');continue;} files.push({file:f,status:'pending',progress:0,id:Date.now()+Math.random()});} renderFileList();updateCount(); if(files.length===1)analyzeFileContent(files[0].file); }
-        function removeFile(id) { files=files.filter(f=>f.id!==id); renderFileList();updateCount(); if(!files.length){document.getElementById('fileAnalysisPreview').style.display='none';} }
-        function renderFileList() { document.getElementById('fileList').innerHTML=files.map(f=>{const ext=f.file.name.split('.').pop().toLowerCase();const cls=ext==='pdf'?'pdf':ext==='md'?'md':ext==='docx'?'doc':'txt';const sz=f.file.size<1024*1024?(f.file.size/1024).toFixed(1)+' KB':(f.file.size/1024/1024).toFixed(1)+' MB';const statusText=f.status==='pending'?'Bereit':f.status==='analyzing'?'<div class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:4px"></div> Analysiert…':f.status==='uploading'?f.progress+'%':f.status==='success'?'✓ Fertig':'✗ Fehler';return`<div class="file-item"><div class="file-type-icon ${cls}">${ext}</div><div class="file-info"><div class="file-name">${f.file.name}</div><div class="file-meta">${sz}</div></div>${f.status==='uploading'?`<div><div class="progress-bar"><div class="progress-fill" style="width:${f.progress}%"></div></div></div>`:''}<span class="file-status ${f.status}">${statusText}</span>${f.status==='pending'?`<button class="file-remove" onclick="removeFile(${f.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''}</div>`;}).join(''); }
+        function addFiles(nf) { const ok=['.pdf','.txt','.md','.docx','.csv','.json']; for(const f of nf){const ext='.'+f.name.split('.').pop().toLowerCase(); if(!ok.includes(ext)){showToast(`${f.name}: nicht unterstützt`,'error');continue;} if(f.size>50*1024*1024){showToast(`${f.name}: zu groß`,'error');continue;} files.push({file:f,status:'pending',progress:0,id:Date.now()+Math.random()});} renderFileList();updateCount();
+            // Single file: show analysis + meta fields
+            // Batch (2+): hide meta fields, backend auto-classifies each
+            const metaFields = document.getElementById('fileMetaFields');
+            const preview = document.getElementById('fileAnalysisPreview');
+            if(files.length===1) {
+                if(metaFields) metaFields.style.display='';
+                analyzeFileContent(files[0].file);
+            } else {
+                // Batch mode: hide per-file meta, show batch hint
+                if(metaFields) metaFields.style.display='none';
+                if(preview) { preview.style.display=''; document.getElementById('fileAnalysisContent').innerHTML=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">📦</span><div><span style="font-weight:600;color:var(--accent-light)">Batch-Upload: ${files.length} Dateien</span><div style="font-size:11px;color:var(--text-muted);margin-top:2px">Jede Datei wird einzeln analysiert und automatisch klassifiziert (Paper / Buch / Studie / Allgemein)</div></div></div>`; }
+            }
+        }
+        function removeFile(id) { files=files.filter(f=>f.id!==id); renderFileList();updateCount();
+            const metaFields = document.getElementById('fileMetaFields');
+            const preview = document.getElementById('fileAnalysisPreview');
+            if(!files.length) {
+                if(preview) preview.style.display='none';
+                if(metaFields) metaFields.style.display='';
+            } else if(files.length===1) {
+                // Switched from batch to single: show meta + run analysis
+                if(metaFields) metaFields.style.display='';
+                analyzeFileContent(files[0].file);
+            }
+        }
+        function renderFileList() { document.getElementById('fileList').innerHTML=files.map(f=>{const ext=f.file.name.split('.').pop().toLowerCase();const cls=ext==='pdf'?'pdf':ext==='md'?'md':ext==='docx'?'doc':'txt';const sz=f.file.size<1024*1024?(f.file.size/1024).toFixed(1)+' KB':(f.file.size/1024/1024).toFixed(1)+' MB';const statusText=f.status==='pending'?'Bereit':f.status==='analyzing'?'<div class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:4px"></div> Analysiert…':f.status==='uploading'?f.progress+'%':f.status==='success'?'✓ Fertig':f._statusText?`✗ ${f._statusText}`:'✗ Fehler';return`<div class="file-item"><div class="file-type-icon ${cls}">${ext}</div><div class="file-info"><div class="file-name">${f.file.name}</div><div class="file-meta">${sz}${f._result?.title&&f._result.title!==f.file.name?' · '+f._result.title:''}</div></div>${f.status==='uploading'?`<div><div class="progress-bar"><div class="progress-fill" style="width:${f.progress}%"></div></div></div>`:''}<span class="file-status ${f.status}">${statusText}</span>${f.status==='pending'?`<button class="file-remove" onclick="removeFile(${f.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''}</div>`;}).join(''); }
         function updateCount() { const el=document.getElementById('uploadCount'); el.textContent=currentTab==='file'?(files.length?`${files.length} Datei${files.length>1?'en':''}`:''):(document.getElementById('textContent').value.length?`${document.getElementById('textContent').value.length} Zeichen`:''); }
 
         document.getElementById('tagInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.value.trim()){e.preventDefault();if(!tags.includes(e.target.value.trim())){tags.push(e.target.value.trim());renderTags();}e.target.value='';}});
@@ -3657,39 +3681,69 @@
             if(currentTab==='file'){
                 if(!files.length){showToast('Bitte Dateien auswählen','error');return;}
                 btn.disabled=true;btn.innerHTML='<div class="spinner"></div> Hochladen...';
-                for(const f of files){
+                const isBatch = files.length > 1;
+                const batchResults = {success:0, papers:0, books:0, studies:0, general:0, duplicates:0, errors:0, items:[]};
+                for(let i=0; i<files.length; i++){
+                    const f = files[i];
                     if(f.status!=='pending')continue;
                     f.status='uploading';renderFileList();
+                    if(isBatch) btn.innerHTML=`<div class="spinner"></div> ${i+1}/${files.length}...`;
                     try{
                         const fd=new FormData();fd.append('file',f.file);fd.append('database',selectedDB);
-                        // Send metadata from analysis fields
-                        const fTitle = document.getElementById('fileTitle')?.value?.trim();
-                        const fCat = document.getElementById('fileCategory')?.value;
-                        const fLang = document.getElementById('fileLang')?.value;
-                        if (fTitle) fd.append('title', fTitle);
-                        if (fCat) fd.append('category', fCat);
-                        if (fLang) fd.append('language', fLang);
-                        if (fileTags.length) fd.append('tags', JSON.stringify(fileTags));
+                        // Single file: send metadata from analysis fields
+                        // Batch: let backend auto-detect everything
+                        if(!isBatch) {
+                            const fTitle = document.getElementById('fileTitle')?.value?.trim();
+                            const fCat = document.getElementById('fileCategory')?.value;
+                            const fLang = document.getElementById('fileLang')?.value;
+                            if (fTitle) fd.append('title', fTitle);
+                            if (fCat) fd.append('category', fCat);
+                            if (fLang) fd.append('language', fLang);
+                            if (fileTags.length) fd.append('tags', JSON.stringify(fileTags));
+                        }
                         const r=await fetch(`${API}/upload`,{method:'POST',headers:H(),body:fd});
                         if(r.status===401){doLogout();showToast('Sitzung abgelaufen','error');return;}
                         if(r.status===409){
                             const dup=await r.json();
-                            showDuplicateModal(dup);
-                            f.status='error';renderFileList();continue;
+                            if(isBatch) {
+                                batchResults.duplicates++;
+                                batchResults.items.push({name:f.file.name, status:'duplicate', title:dup.title});
+                                f.status='error'; f._statusText='Duplikat';
+                            } else {
+                                showDuplicateModal(dup);
+                                f.status='error';
+                            }
+                            renderFileList();continue;
                         }
                         if(!r.ok)throw new Error(await r.text());
                         const result = await r.json();
                         f.status='success';f.progress=100;
                         f._result = result;
-                    }catch(e){f.status='error';showToast(`${f.file.name}: ${e.message}`,'error');}
+                        if(isBatch) {
+                            batchResults.success++;
+                            const ghUrl = result.github_url || '';
+                            const cat = ghUrl.includes('/books/') ? 'books' : ghUrl.includes('/studies/') ? 'studies' : ghUrl.includes('/papers/') ? 'papers' : 'general';
+                            batchResults[cat]++;
+                            batchResults.items.push({name:f.file.name, status:'ok', title:result.title, category:cat, github:result.github_url});
+                        }
+                    }catch(e){
+                        f.status='error';
+                        if(isBatch) { batchResults.errors++; batchResults.items.push({name:f.file.name, status:'error', error:e.message}); }
+                        else showToast(`${f.file.name}: ${e.message}`,'error');
+                    }
                     renderFileList();
                 }
-                const ok=files.filter(f=>f.status==='success').length;
-                if(ok){
-                    const lastOk = files.filter(f=>f.status==='success').pop();
-                    const res = lastOk?._result || {};
-                    const isPaper = res.github_url || (res.status && res.status.includes('github'));
-                    showUploadProgress(res.title || lastOk?.file?.name || 'Dokument', isPaper, res, ok);
+                if(isBatch) {
+                    // Show batch summary
+                    showBatchSummary(batchResults);
+                } else {
+                    const ok=files.filter(f=>f.status==='success').length;
+                    if(ok){
+                        const lastOk = files.filter(f=>f.status==='success').pop();
+                        const res = lastOk?._result || {};
+                        const isPaper = res.github_url || (res.status && res.status.includes('github'));
+                        showUploadProgress(res.title || lastOk?.file?.name || 'Dokument', isPaper, res, ok);
+                    }
                 }
             } else {
                 const title=document.getElementById('textTitle').value.trim(),content=document.getElementById('textContent').value.trim();
@@ -3929,6 +3983,55 @@
                     }
                 }, stepDelay * i + 400); // +400ms initial delay
             });
+        }
+
+        function showBatchSummary(results) {
+            const old = document.getElementById('uploadProgressModal');
+            if (old) old.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'uploadProgressModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);animation:fadeIn 0.2s ease';
+
+            const total = results.success + results.duplicates + results.errors;
+            const cats = [];
+            if (results.papers) cats.push(`📚 ${results.papers} Paper${results.papers>1?'s':''}`);
+            if (results.books) cats.push(`📖 ${results.books} Buch/Bücher`);
+            if (results.studies) cats.push(`📊 ${results.studies} Studie${results.studies>1?'n':''}`);
+            if (results.general) cats.push(`📄 ${results.general} Dokument${results.general>1?'e':''}`);
+
+            const catHtml = cats.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px">${cats.map(c => `<span style="padding:4px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;font-size:12px">${c}</span>`).join('')}</div>` : '';
+
+            const warnings = [];
+            if (results.duplicates) warnings.push(`⚠️ ${results.duplicates} Duplikat${results.duplicates>1?'e':''}`);
+            if (results.errors) warnings.push(`❌ ${results.errors} Fehler`);
+            const warnHtml = warnings.length ? `<div style="margin-top:8px;font-size:11px;color:var(--text-muted)">${warnings.join(' · ')}</div>` : '';
+
+            // Item list (scrollable)
+            const itemsHtml = results.items.map(it => {
+                const icon = it.status==='ok' ? (it.category==='papers'?'📚':it.category==='books'?'📖':it.category==='studies'?'📊':'📄') : it.status==='duplicate' ? '⚠️' : '❌';
+                const statusColor = it.status==='ok' ? 'rgba(52,211,153,0.8)' : it.status==='duplicate' ? 'rgba(245,158,11,0.8)' : 'rgba(239,68,68,0.8)';
+                const label = it.status==='ok' ? (it.title||it.name) : it.status==='duplicate' ? `${it.name} (Duplikat)` : `${it.name} (Fehler)`;
+                return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px"><span>${icon}</span><span style="color:${statusColor};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span></div>`;
+            }).join('');
+
+            modal.innerHTML = `
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:500px;width:90vw;padding:32px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:slideUp 0.25s ease;text-align:center">
+                    <div style="font-size:36px;margin-bottom:12px">📦</div>
+                    <div style="font-size:16px;font-weight:600;color:var(--text-primary)">Batch-Upload abgeschlossen</div>
+                    <div style="font-size:24px;font-weight:700;color:rgba(52,211,153,0.9);margin-top:8px">${results.success} von ${total} erfolgreich</div>
+                    ${catHtml}${warnHtml}
+                    <div style="max-height:200px;overflow-y:auto;margin-top:16px;padding:12px;background:rgba(0,0,0,0.15);border-radius:10px;text-align:left">
+                        ${itemsHtml}
+                    </div>
+                    <div style="margin-top:20px">
+                        <button onclick="document.getElementById('uploadProgressModal').remove();files=[];renderFileList();updateCount();loadStats();document.getElementById('fileAnalysisPreview').style.display='none';document.getElementById('fileMetaFields').style.display='';" style="padding:10px 32px;border-radius:10px;border:none;background:rgba(52,211,153,0.15);color:rgba(52,211,153,0.95);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(52,211,153,0.25)'" onmouseleave="this.style.background='rgba(52,211,153,0.15)'">
+                            Weiter arbeiten
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
         }
 
         function duplicateAction(action, docId, title) {
