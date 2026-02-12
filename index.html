@@ -3036,8 +3036,10 @@
 
         // ── Insight / Ψ-Profiling (5-Choice Architecture) ──────────
         let insightState = { questionNum: 0, currentQuestion: null, startTime: null, context: 'login' };
+        const INSIGHT_ENABLED = false; // ← Feature-Flag: auf true setzen um Intro-Fragen wieder zu aktivieren
 
         async function insightStart(context = 'login') {
+            if (!INSIGHT_ENABLED) return; // Sistiert bis Reaktivierung
             insightState = { questionNum: 0, currentQuestion: null, startTime: null, context };
             await insightNext();
         }
