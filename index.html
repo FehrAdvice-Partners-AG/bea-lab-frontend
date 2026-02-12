@@ -4145,7 +4145,10 @@
                             <div id="docDetailTitle" style="font-size:16px;font-weight:600;color:var(--text-primary);flex:1;margin-right:12px"></div>
                             <div style="display:flex;gap:8px;align-items:center">
                                 <span id="docDetailBadges"></span>
-                                <button id="docReviewBtn" onclick="reviewDocument()" style="padding:5px 12px;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);border-radius:8px;color:#a78bfa;font-size:11px;cursor:pointer;white-space:nowrap">🧠 BEATRIX Review</button>
+                                <button id="docReviewBtn" onclick="reviewDocument()" style="padding:5px 12px;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);border-radius:8px;color:#a78bfa;font-size:11px;cursor:pointer;white-space:nowrap" title="Behavioral Economics Review">🧠 Review</button>
+                                <button id="docTriageBtn" onclick="triageDocument()" style="padding:5px 12px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3);border-radius:8px;color:#fbbf24;font-size:11px;cursor:pointer;white-space:nowrap" title="PURSUE/CONSIDER/SKIP Triage">⚡ Triage</button>
+                                <button id="docIntegrityBtn" onclick="integrityCheckDocument()" style="padding:5px 12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#f87171;font-size:11px;cursor:pointer;white-space:nowrap" title="Integrity Scan">🔍 Integrity</button>
+                                <button id="docMultiReviewBtn" onclick="multiReviewDocument()" style="padding:5px 12px;background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3);border-radius:8px;color:#34d399;font-size:11px;cursor:pointer;white-space:nowrap" title="3 Perspektiven Review">⚔️ Multi</button>
                                 <button id="docClassifyBtn" onclick="classifyDocument()" style="padding:5px 12px;background:rgba(42,127,142,0.15);border:1px solid rgba(42,127,142,0.3);border-radius:8px;color:var(--accent);font-size:11px;cursor:pointer;white-space:nowrap">🧬 Klassifizieren</button>
                                 <button onclick="document.getElementById('docDetailModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
                             </div>
@@ -4426,8 +4429,129 @@
             } catch(e) {
                 reviewEl.innerHTML = `<div style="color:#ef4444;font-size:12px">❌ Review fehlgeschlagen: ${e.message?.slice(0,200)}</div>`;
                 showToast(`Review-Fehler: ${e.message?.slice(0,100)}`, 'error');
-                if (btn) { btn.disabled = false; btn.innerHTML = '🧠 BEATRIX Review'; }
+                if (btn) { btn.disabled = false; btn.innerHTML = '🧠 Review'; }
             }
+        }
+
+        async function triageDocument() {
+            if (!currentDocId) return;
+            const btn = document.getElementById('docTriageBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Triage...'; }
+            const reviewEl = document.getElementById('docDetailReview');
+            reviewEl.style.display = '';
+            reviewEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px 0">
+                <div class="loading-spinner" style="width:20px;height:20px;border-width:2px"></div>
+                <div><div style="font-size:13px;color:var(--text-primary)">Paper-Triage: PURSUE / CONSIDER / SKIP</div>
+                <div style="font-size:11px;color:var(--text-muted)">Bewertung + Conditions (ca. 15-30 Sek.)</div></div></div>`;
+            try {
+                const r = await fetch(`${API}/documents/${currentDocId}/triage`, {method:'POST',headers:H()});
+                if (!r.ok) throw new Error(await r.text());
+                const d = await r.json();
+                const sc = d.score||0;
+                const rec = d.recommendation||'?';
+                const recColor = {'PURSUE':'#34d399','CONSIDER':'#fbbf24','SKIP':'#ef4444'}[rec]||'#9ca3af';
+                let html = `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+                    <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Triage</span>
+                    <span style="font-size:26px;font-weight:700;color:${recColor}">${sc}</span>
+                    <span style="font-size:12px;color:var(--text-muted)">/100</span>
+                    <span style="padding:3px 12px;background:${recColor}22;color:${recColor};border-radius:6px;font-size:12px;font-weight:700">${rec}</span>
+                </div>`;
+                if (d.dimensions) {
+                    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${Object.entries(d.dimensions).map(([k,v])=>`<span style="padding:4px 10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;font-size:10px"><span style="color:var(--text-muted)">${k.replace(/_/g,' ')}</span> <strong style="color:${v.score>=18?'#34d399':v.score>=13?'#fbbf24':'#ef4444'}">${v.score}/25</strong></span>`).join('')}</div>`;
+                }
+                if (d.conditions?.length) {
+                    html += `<div style="margin-bottom:8px"><div style="font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">⚠️ Conditions</div>${d.conditions.map(c=>`<div style="font-size:11px;color:#fbbf24;padding:2px 0">→ ${c}</div>`).join('')}</div>`;
+                }
+                if (d.one_line_summary) html += `<div style="font-size:11px;color:var(--text-secondary);font-style:italic">${d.one_line_summary}</div>`;
+                if (d.kill_reason) html += `<div style="font-size:11px;color:#ef4444;margin-top:4px">❌ Kill: ${d.kill_reason}</div>`;
+                reviewEl.innerHTML = html;
+                showToast(`Triage: ${sc}/100 → ${rec}`, 'success');
+            } catch(e) {
+                reviewEl.innerHTML = `<div style="color:#ef4444;font-size:12px">❌ Triage fehlgeschlagen: ${e.message?.slice(0,200)}</div>`;
+                showToast(`Triage-Fehler`, 'error');
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Triage'; }
+        }
+
+        async function integrityCheckDocument() {
+            if (!currentDocId) return;
+            const btn = document.getElementById('docIntegrityBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Scanning...'; }
+            const reviewEl = document.getElementById('docDetailReview');
+            reviewEl.style.display = '';
+            reviewEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px 0">
+                <div class="loading-spinner" style="width:20px;height:20px;border-width:2px"></div>
+                <div><div style="font-size:13px;color:var(--text-primary)">Integrity Scan: 6 Kategorien</div>
+                <div style="font-size:11px;color:var(--text-muted)">Claims, Quellen, Methodik, Limitationen (ca. 20-40 Sek.)</div></div></div>`;
+            try {
+                const r = await fetch(`${API}/documents/${currentDocId}/integrity-check`, {method:'POST',headers:H()});
+                if (!r.ok) throw new Error(await r.text());
+                const d = await r.json();
+                const verdict = d.overall_verdict||'?';
+                const verdictColor = verdict==='CLEAN'?'#34d399':'#ef4444';
+                const flags = d.flags||[];
+                const highF = flags.filter(f=>f.severity==='HIGH').length;
+                const medF = flags.filter(f=>f.severity==='MEDIUM').length;
+                let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                    <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Integrity</span>
+                    <span style="padding:4px 14px;background:${verdictColor}22;color:${verdictColor};border-radius:6px;font-size:13px;font-weight:700">${verdict==='CLEAN'?'✅':'⚠️'} ${verdict}</span>
+                    <span style="font-size:11px;color:var(--text-muted)">${highF} HIGH · ${medF} MEDIUM · ${flags.length-highF-medF} LOW</span>
+                </div>`;
+                if (flags.length) {
+                    html += `<div style="display:flex;flex-direction:column;gap:4px">${flags.slice(0,6).map(f=>{
+                        const sColor = {HIGH:'#ef4444',MEDIUM:'#fbbf24',LOW:'#9ca3af'}[f.severity]||'#666';
+                        return `<div style="padding:6px 10px;background:rgba(0,0,0,0.15);border-left:3px solid ${sColor};border-radius:0 6px 6px 0;font-size:11px">
+                            <span style="color:${sColor};font-weight:600">[${f.severity}]</span> <span style="color:var(--text-secondary)">${f.category?.replace(/_/g,' ')}</span>
+                            <div style="color:var(--text-muted);font-size:10px;margin-top:2px">${f.evidence?.slice(0,150)||''}</div>
+                        </div>`;}).join('')}</div>`;
+                }
+                if (d.summary) html += `<div style="font-size:11px;color:var(--text-secondary);margin-top:8px">${d.summary}</div>`;
+                reviewEl.innerHTML = html;
+                showToast(`Integrity: ${verdict} (${highF}H/${medF}M)`, verdict==='CLEAN'?'success':'error');
+            } catch(e) {
+                reviewEl.innerHTML = `<div style="color:#ef4444;font-size:12px">❌ Integrity Scan fehlgeschlagen: ${e.message?.slice(0,200)}</div>`;
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '🔍 Integrity'; }
+        }
+
+        async function multiReviewDocument() {
+            if (!currentDocId) return;
+            const btn = document.getElementById('docMultiReviewBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ 3 Reviews...'; }
+            const reviewEl = document.getElementById('docDetailReview');
+            reviewEl.style.display = '';
+            reviewEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px 0">
+                <div class="loading-spinner" style="width:20px;height:20px;border-width:2px"></div>
+                <div><div style="font-size:13px;color:var(--text-primary)">Multi-Perspektiven Review wird erstellt...</div>
+                <div style="font-size:11px;color:var(--text-muted)">🔬 Analytisch + 🏢 Praxis + 😈 Devil's Advocate (ca. 60-90 Sek.)</div></div></div>`;
+            try {
+                const r = await fetch(`${API}/documents/${currentDocId}/multi-review`, {method:'POST',headers:H()});
+                if (!r.ok) throw new Error(await r.text());
+                const d = await r.json();
+                const v = d.verdicts||{};
+                const consensus = d.consensus||'?';
+                const cColor = {'ACCEPT':'#34d399','MINOR REVISION':'#60a5fa','MAJOR REVISION':'#fbbf24','REJECT':'#ef4444'}[consensus]||'#9ca3af';
+                let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                    <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Multi-Review</span>
+                    <span style="padding:4px 14px;background:${cColor}22;color:${cColor};border-radius:6px;font-size:13px;font-weight:700">${consensus}</span>
+                    <span style="font-size:11px;color:${d.all_agree?'#34d399':'#fbbf24'}">${d.all_agree?'✅ Einstimmig':'⚠️ Disagreement'}</span>
+                </div>`;
+                const icons = {analytical:'🔬',practical:'🏢',devils_advocate:'😈'};
+                const names = {analytical:'Analytisch',practical:'Praxis',devils_advocate:"Devil's Advocate"};
+                html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(v).map(([k,verdict])=>{
+                    const vc = {'ACCEPT':'#34d399','MINOR REVISION':'#60a5fa','MAJOR REVISION':'#fbbf24','REJECT':'#ef4444'}[verdict]||'#9ca3af';
+                    return `<div style="flex:1;min-width:120px;padding:8px 12px;background:rgba(0,0,0,0.15);border-radius:8px;border-left:3px solid ${vc}">
+                        <div style="font-size:10px;color:var(--text-muted)">${icons[k]||''} ${names[k]||k}</div>
+                        <div style="font-size:12px;font-weight:600;color:${vc}">${verdict}</div>
+                    </div>`;}).join('')}</div>`;
+                if (d.synthesis_preview) html += `<div style="font-size:11px;color:var(--text-secondary);line-height:1.5">${d.synthesis_preview}</div>`;
+                if (d.review_id) html += `<div style="margin-top:8px"><a href="#" onclick="viewDocument('${d.review_id}');return false" style="font-size:11px;color:#34d399">📖 Vollständiges Multi-Review anzeigen</a></div>`;
+                reviewEl.innerHTML = html;
+                showToast(`Multi-Review: ${consensus} ${d.all_agree?'(einstimmig)':'(Disagreement)'}`, 'success');
+            } catch(e) {
+                reviewEl.innerHTML = `<div style="color:#ef4444;font-size:12px">❌ Multi-Review fehlgeschlagen: ${e.message?.slice(0,200)}</div>`;
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '⚔️ Multi'; }
         }
 
         async function bulkClassifyDocs() {
