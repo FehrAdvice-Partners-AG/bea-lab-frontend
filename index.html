@@ -4835,7 +4835,7 @@
 
         async function bulkApeReview() {
             const btn = document.getElementById('bulkApeBtn');
-            if (!confirm('APE Review für ALLE Dokumente starten? Das kann mehrere Minuten dauern und kostet API Credits.')) return;
+            if (!await bxConfirm('APE Review für ALLE Dokumente starten? Das kann mehrere Minuten dauern und kostet API Credits.', {title:'APE Review', icon:'🔥', confirmText:'Review starten', danger:false})) return;
             btn.disabled = true; btn.innerHTML = '⏳ Reviewe...';
             try {
                 const r = await fetch(`${API}/documents`, {headers:H()});
@@ -6268,7 +6268,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         async function caDeleteAnalysis(id) {
-            if (!confirm('Ψ-Analyse wirklich löschen?')) return;
+            if (!await bxConfirm('Ψ-Analyse wirklich löschen?', {title:'Analyse löschen', icon:'🗑️', confirmText:'Löschen', danger:true})) return;
             try {
                 let resp = await fetch(`${API}/psi-analyses/${id}`, { method: 'DELETE', headers: H() });
                 if (!resp.ok) {
@@ -6578,7 +6578,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         async function crmLeadWon(id) {
             const deal = crmDeals.find(d => d.id === id);
             if (!deal) return;
-            if (!confirm(`Lead "${deal.title}" als GEWONNEN markieren und Projekt eröffnen?`)) return;
+            if (!await bxConfirm(`Lead "${deal.title}" als GEWONNEN markieren und Projekt eröffnen?`, {title:'Lead gewonnen! 🎉', icon:'🏆', confirmText:'Projekt eröffnen'})) return;
 
             // 1. Move to "won" stage
             try {
@@ -7334,7 +7334,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         async function deleteTask(taskId) {
-            if (!confirm('Task wirklich löschen?')) return;
+            if (!await bxConfirm('Task wirklich löschen?', {title:'Task löschen', icon:'🗑️', confirmText:'Löschen', danger:true})) return;
             try {
                 await fetch(`${API}/tasks/${taskId}`, {method:'DELETE', headers:H()});
                 loadTasks();
@@ -8340,7 +8340,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
         async function prjUnlinkProject(targetSlug) {
             if (!prjCurrentSlug || !targetSlug) return;
-            if (!confirm(`Verknüpfung zu "${targetSlug}" wirklich lösen?`)) return;
+            if (!await bxConfirm(`Verknüpfung zu "${targetSlug}" wirklich lösen?`, {title:'Verknüpfung lösen', icon:'🔗', confirmText:'Lösen', danger:true})) return;
             try {
                 const resp = await fetch(`${API}/projects/${prjCurrentSlug}/link/${targetSlug}`, {
                     method: 'DELETE', headers: H()
@@ -9357,7 +9357,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         async function crmDeleteDeal(id) {
-            if (!confirm('Lead löschen?')) return;
+            if (!await bxConfirm('Lead wirklich löschen?', {title:'Lead löschen', icon:'🗑️', confirmText:'Endgültig löschen', danger:true})) return;
             try { await fetch(`${API}/crm/deals/${id}`,{method:'DELETE',headers:H()}); crmCloseDrawer(); crmLoad(); showToast('Lead gelöscht','success'); } catch(e) { showToast('Fehler','error'); }
         }
 
@@ -9380,6 +9380,39 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         function showToast(msg,type='info'){const c=document.getElementById('toastContainer'),t=document.createElement('div');t.className=`toast ${type}`;t.innerHTML=`<span>${{success:'✓',error:'✗',info:'ℹ'}[type]||''}</span> ${msg}`;c.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(20px)';t.style.transition='0.3s';setTimeout(()=>t.remove(),300);},4000);}
+
+        function bxConfirm(message, {title='Bestätigung', icon='⚠️', confirmText='OK', cancelText='Abbrechen', danger=false} = {}) {
+            return new Promise(resolve => {
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9900;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.15s ease';
+                const accentColor = danger ? '#f87171' : 'var(--accent)';
+                const accentBg = danger ? 'rgba(248,113,113,0.15)' : 'linear-gradient(135deg,var(--accent),#2A7F8E)';
+                const accentBorder = danger ? 'rgba(248,113,113,0.3)' : 'rgba(42,127,142,0.3)';
+                overlay.innerHTML = `
+                    <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:16px;width:min(420px,90vw);overflow:hidden;animation:slideUp 0.2s ease">
+                        <div style="padding:24px 24px 0">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+                                <div style="font-size:24px">${icon}</div>
+                                <div style="font-size:16px;font-weight:700;color:white">${title}</div>
+                            </div>
+                            <div style="font-size:14px;color:rgba(255,255,255,0.7);line-height:1.6;padding-bottom:20px">${message}</div>
+                        </div>
+                        <div style="padding:12px 24px 20px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border)">
+                            <button id="bxConfirmCancel" style="padding:10px 20px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer;font-family:inherit;transition:all 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background='transparent'">${cancelText}</button>
+                            <button id="bxConfirmOk" style="padding:10px 24px;border:1px solid ${accentBorder};border-radius:10px;background:${accentBg};color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">${confirmText}</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(overlay);
+                const cleanup = (result) => { overlay.remove(); resolve(result); };
+                overlay.querySelector('#bxConfirmOk').onclick = () => cleanup(true);
+                overlay.querySelector('#bxConfirmCancel').onclick = () => cleanup(false);
+                overlay.onclick = (e) => { if (e.target === overlay) cleanup(false); };
+                // ESC to cancel
+                const esc = (e) => { if (e.key === 'Escape') { document.removeEventListener('keydown', esc); cleanup(false); } };
+                document.addEventListener('keydown', esc);
+                overlay.querySelector('#bxConfirmOk').focus();
+            });
+        }
         function clearAll(){files=[];tags=[];fileTags=[];renderFileList();renderTags();renderFileTags();document.getElementById('textTitle').value='';document.getElementById('textContent').value='';document.getElementById('fileTitle').value='';document.getElementById('fileCategory').value='general';document.getElementById('fileLang').value='de';document.getElementById('textZone').classList.remove('has-content','focused','active');document.getElementById('textCharCount').style.display='none';updateCount();lastAnalyzedLength=0;document.getElementById('textAnalysisPreview').style.display='none';document.getElementById('fileAnalysisPreview').style.display='none';}
         document.getElementById('textContent').addEventListener('input',updateCount);
 
@@ -9546,7 +9579,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         async function toggleUserActive(userId, email) {
-            if (!confirm(`Benutzer ${email} wirklich umschalten?`)) return;
+            if (!await bxConfirm(`Benutzer ${email} wirklich umschalten?`, {title:'Benutzer deaktivieren', icon:'👤', confirmText:'Umschalten', danger:true})) return;
             try {
                 const r = await fetch(`${API}/admin/users/${userId}/toggle-active`, {method:'PUT', headers:H()});
                 if (!r.ok) { showToast('Fehler beim Ändern', 'error'); return; }
@@ -9557,7 +9590,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         async function adminVerifyUser(userId, email) {
-            if (!confirm(`E-Mail von ${email} manuell bestätigen?`)) return;
+            if (!await bxConfirm(`E-Mail von ${email} manuell bestätigen?`, {title:'E-Mail verifizieren', icon:'✉️', confirmText:'Bestätigen'})) return;
             try {
                 const r = await fetch(`${API}/admin/users/${userId}/verify`, {method:'PUT', headers:H()});
                 if (!r.ok) { showToast('Fehler', 'error'); return; }
@@ -9581,7 +9614,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
         async function adminToggleAdmin(userId, email, makeAdmin) {
             const action = makeAdmin ? `${email} zum Admin ernennen?` : `Admin-Rechte von ${email} entziehen?`;
-            if (!confirm(action)) return;
+            if (!await bxConfirm(action, {title:'Admin-Rechte ändern', icon:'⚙️', confirmText:'Ändern', danger:true})) return;
             try {
                 const r = await fetch(`${API}/admin/users/${userId}/toggle-admin`, {
                     method: 'PUT', headers: { ...H(), 'Content-Type': 'application/json' },
@@ -9852,7 +9885,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
         async function connectLinkedIn() {
             if (profileData?.linkedin_connected) {
-                if (!confirm('LinkedIn-Verbindung trennen?')) return;
+                if (!await bxConfirm('LinkedIn-Verbindung trennen?', {title:'LinkedIn trennen', icon:'🔗', confirmText:'Trennen', danger:true})) return;
                 try {
                     await fetch(`${API}/profile/linkedin/disconnect`, {method:'POST', headers:H()});
                     showToast('LinkedIn getrennt','info');
@@ -10382,7 +10415,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const msgs = document.querySelectorAll('#chatMessages .chat-msg.user, #chatMessages .chat-msg.assistant');
             if (msgs.length === 0) { showToast('Keine aktive Session zum Schliessen', 'info'); return; }
             // Confirm
-            if (!confirm('Session schliessen? Der Chat-Verlauf wird gelöscht und eine neue Session gestartet.')) return;
+            if (!await bxConfirm('Session schliessen? Der Chat-Verlauf wird gelöscht und eine neue Session gestartet.', {title:'Session schliessen', icon:'📜', confirmText:'Schliessen'})) return;
             // Optionally notify backend to close/archive
             try {
                 await fetch(`${API}/chat/session/${chatSessionId}/close`, {
@@ -10576,7 +10609,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         async function sessionClose(sid) {
-            if (!confirm('Session wirklich schliessen? Du kannst danach nicht mehr weiterschreiben.')) return;
+            if (!await bxConfirm('Session wirklich schliessen? Du kannst danach nicht mehr weiterschreiben.', {title:'Session schliessen', icon:'📜', confirmText:'Schliessen'})) return;
             try {
                 const r = await fetch(`${API}/chat/session/${sid}/close`, {method:'POST', headers: H()});
                 if (!r.ok) throw new Error('Fehler');
@@ -10597,7 +10630,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         async function sessionDelete(sid) {
-            if (!confirm('Session unwiderruflich löschen? Alle Nachrichten gehen verloren.')) return;
+            if (!await bxConfirm('Session unwiderruflich löschen? Alle Nachrichten gehen verloren.', {title:'Session löschen', icon:'🗑️', confirmText:'Endgültig löschen', danger:true})) return;
             try {
                 const r = await fetch(`${API}/chat/session/${sid}`, {method:'DELETE', headers: H()});
                 if (!r.ok && r.status !== 404) throw new Error('Fehler');
