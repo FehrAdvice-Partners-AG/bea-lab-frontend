@@ -4695,8 +4695,12 @@
             if (!msgEl) return;
             // Find the closest .chat-msg ancestor or use msgEl itself
             const chatMsg = msgEl.closest('.chat-msg') || msgEl;
-            const msgId = chatMsg.id || ('msg_' + Date.now());
-            if (!chatMsg.id) chatMsg.id = msgId;
+            // Ensure a STABLE id (bxStreamMsg gets removed later, so replace it)
+            let msgId = chatMsg.id;
+            if (!msgId || msgId === 'bxStreamMsg') {
+                msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+                chatMsg.id = msgId;
+            }
             // Don't add if already present
             if (chatMsg.querySelector('[onclick*="copyAnswer"]')) return;
             const body = chatMsg.querySelector('.chat-msg-body');
