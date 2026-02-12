@@ -10030,14 +10030,32 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     const isCurrent = s.session_id === chatSessionId;
                     const isClosed = s.is_closed;
                     const dt = new Date(s.started_at);
+                    const updatedAt = s.updated_at ? new Date(s.updated_at) : dt;
                     const dateStr = dt.toLocaleDateString('de-CH', {day:'2-digit',month:'2-digit',year:'2-digit'});
                     const timeStr = dt.toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'});
                     const title = s.title || s.session_id;
+                    const hoursAgo = (Date.now() - updatedAt.getTime()) / 3600000;
+                    const isStale = !isClosed && !isCurrent && hoursAgo > 1;
                     const statusBadge = isCurrent
                         ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(42,200,120,0.15);color:rgba(42,200,120,0.9);border:1px solid rgba(42,200,120,0.25)">aktiv</span>'
                         : isClosed
                             ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(220,80,80,0.1);color:rgba(220,130,130,0.8);border:1px solid rgba(220,80,80,0.2)">geschlossen</span>'
-                            : '';
+                            : isStale
+                                ? '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(251,191,36,0.1);color:rgba(251,191,36,0.8);border:1px solid rgba(251,191,36,0.2)">pausiert</span>'
+                                : '<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(99,102,241,0.1);color:rgba(129,140,248,0.8);border:1px solid rgba(99,102,241,0.2)">offen</span>';
+
+                    // Quick action buttons
+                    let actions = '<div style="display:flex;gap:6px;margin-top:8px" onclick="event.stopPropagation()">';
+                    if (isCurrent) {
+                        actions += `<button onclick="closeSessionDetail();toggleSessionHistory();document.getElementById('chatInput').focus()" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(42,127,142,0.25);background:rgba(42,127,142,0.08);color:var(--accent);font-size:10px;cursor:pointer">💬 Weiterschreiben</button>`;
+                        actions += `<button onclick="sessionClose('${s.session_id}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(251,191,36,0.2);background:transparent;color:rgba(251,191,36,0.6);font-size:10px;cursor:pointer">🔒 Schliessen</button>`;
+                    } else if (!isClosed) {
+                        actions += `<button onclick="sessionContinue('${s.session_id}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(42,127,142,0.25);background:rgba(42,127,142,0.08);color:var(--accent);font-size:10px;cursor:pointer">💬 Weiterchatten</button>`;
+                        actions += `<button onclick="sessionClose('${s.session_id}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(251,191,36,0.2);background:transparent;color:rgba(251,191,36,0.6);font-size:10px;cursor:pointer">🔒 Schliessen</button>`;
+                    }
+                    actions += `<button onclick="sessionDelete('${s.session_id}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(239,68,68,0.15);background:transparent;color:rgba(239,68,68,0.4);font-size:10px;cursor:pointer">🗑</button>`;
+                    actions += '</div>';
+
                     return `<div onclick="openSessionDetail('${s.session_id}')" style="padding:12px 14px;border:1px solid ${isCurrent ? 'rgba(42,127,142,0.3)' : 'var(--border,#1e2d4a)'};border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.15s;background:${isCurrent ? 'rgba(42,127,142,0.06)' : 'rgba(255,255,255,0.02)'}" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='${isCurrent ? 'rgba(42,127,142,0.06)' : 'rgba(255,255,255,0.02)'}'">`
                         + `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">`
                         + `<span style="font-size:13px;font-weight:600;color:white;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.session_icon || '💬'} ${title.length > 50 ? title.slice(0,47) + '...' : title}</span>`
@@ -10049,6 +10067,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         + (s.duration_minutes > 0 ? `<span>⏱ ${s.duration_minutes}min</span>` : '')
                         + `</div>`
                         + (s.summary ? `<div style="margin-top:5px;font-size:11px;color:var(--text-secondary,#8899b8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.summary.slice(0,80)}</div>` : '')
+                        + actions
                         + `</div>`;
                 }).join('');
             } catch(e) {
