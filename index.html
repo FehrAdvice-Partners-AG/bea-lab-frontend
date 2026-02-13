@@ -9981,35 +9981,68 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const fieldColors2 = {behavioral_econ:'251,191,36',experimental:'139,92,246',psychology:'248,113,113',neuro:'236,72,153',labor:'52,211,153',social_pref:'59,130,246',development:'251,191,36',decision:'139,92,246',info_econ:'168,85,247',market_design:'52,211,153',policy:'59,130,246',org_econ:'251,191,36',health:'248,113,113',institutions:'168,85,247',ai_econ:'52,211,153',behavioral_finance:'251,191,36'};
             const fieldLabels2 = {behavioral_econ:'BE',experimental:'EXP',psychology:'PSY',neuro:'NEU',labor:'LAB',social_pref:'SOC',development:'DEV',decision:'DEC',info_econ:'INFO',market_design:'MKT',policy:'POL',org_econ:'ORG',health:'HLT',institutions:'INST',ai_econ:'AI',behavioral_finance:'FIN'};
 
-            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+            // Group entries by institution
+            const groups = {};
             entries.forEach(([key, r]) => {
-                const isVerified = r.tier === 'verified';
-                const isComplete = (r.status||'').includes('COMPLETE');
-                const borderColor = isComplete ? 'rgba(52,211,153,0.25)' : isVerified ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)';
-                const bgColor = isComplete ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.015)';
-                const displayName = r.name || key.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
-                const pdfCount = r.count || 0;
-                const barWidth = Math.min(100, (pdfCount / 120) * 100);
-                const fc = fieldColors2[r.field] || '255,255,255';
-                const fl = fieldLabels2[r.field] || '';
-                const inst = r.institution ? `<span style="font-size:9px;color:rgba(255,255,255,0.25)">${r.institution}</span>` : '';
-
-                html += `<div onclick="pfShowDetail('${key}')" style="padding:12px 14px;background:${bgColor};border:1px solid ${borderColor};border-radius:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='${borderColor}'">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,${isVerified?'0.9':'0.6'})">${isComplete?'✅ ':isVerified?'📚 ':''}${displayName}</div>
-                        <span style="padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;background:rgba(${pdfCount>50?'52,211,153':pdfCount>10?'59,130,246':'255,255,255'},0.1);color:rgba(${pdfCount>50?'52,211,153':pdfCount>10?'59,130,246':'255,255,255'},0.6)">${pdfCount}</span>
-                    </div>
-                    <div style="height:2px;background:rgba(255,255,255,0.04);border-radius:1px;margin-bottom:6px;overflow:hidden">
-                        <div style="height:100%;width:${barWidth}%;background:rgba(${isComplete?'52,211,153':isVerified?'59,130,246':'255,255,255'},0.4);border-radius:1px"></div>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                        ${fl ? `<span style="padding:1px 6px;border-radius:3px;font-size:8px;background:rgba(${fc},0.08);color:rgba(${fc},0.6);letter-spacing:0.5px">${fl}</span>` : '<span></span>'}
-                        ${inst}
-                    </div>
-                </div>`;
+                const inst = r.institution || 'Sonstige';
+                if (!groups[inst]) groups[inst] = [];
+                groups[inst].push([key, r]);
             });
-            html += '</div>';
-            html += `<div style="text-align:center;padding:10px;font-size:11px;color:rgba(255,255,255,0.2)">${entries.length} von ${Object.keys(researchers).length} Forschern</div>`;
+            // Sort groups: most total PDFs first, "Sonstige" always last
+            const sortedGroups = Object.entries(groups).sort((a, b) => {
+                if (a[0] === 'Sonstige') return 1;
+                if (b[0] === 'Sonstige') return -1;
+                const aTotal = a[1].reduce((s, [,r]) => s + (r.count||0), 0);
+                const bTotal = b[1].reduce((s, [,r]) => s + (r.count||0), 0);
+                return bTotal - aTotal;
+            });
+
+            // Institution icons
+            const instIcons = {'University of Zurich':'🇨🇭','UZH':'🇨🇭','Harvard':'🇺🇸','Stanford':'🇺🇸','Chicago':'🇺🇸','University of Chicago':'🇺🇸','Princeton':'🇺🇸','Caltech':'🇺🇸','Bonn':'🇩🇪','briq':'🇩🇪','MIT':'🇺🇸','Minnesota':'🇺🇸','Carnegie Mellon':'🇺🇸','Duke':'🇺🇸','Yale':'🇺🇸','LSE':'🇬🇧','Oxford':'🇬🇧','Cambridge':'🇬🇧','Sonstige':'🔬'};
+            function getInstIcon(name) { for (const [k,v] of Object.entries(instIcons)) { if (name.toLowerCase().includes(k.toLowerCase())) return v; } return '🏛'; }
+
+            let html = '';
+            sortedGroups.forEach(([instName, instEntries]) => {
+                const totalPdfs = instEntries.reduce((s, [,r]) => s + (r.count||0), 0);
+                const verifiedCount = instEntries.filter(([,r]) => r.tier === 'verified').length;
+                const icon = getInstIcon(instName);
+                // Collapsible group header
+                const groupId = 'pfGrp_' + instName.replace(/[^a-zA-Z0-9]/g,'_');
+                html += `<div style="margin-bottom:20px">
+                    <div onclick="const el=document.getElementById('${groupId}');const arr=this.querySelector('.pf-grp-arrow');if(el.style.display==='none'){el.style.display='grid';arr.style.transform='rotate(0deg)'}else{el.style.display='none';arr.style.transform='rotate(-90deg)'}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;cursor:pointer;margin-bottom:10px;transition:all 0.15s" onmouseenter="this.style.borderColor='rgba(42,127,142,0.3)'" onmouseleave="this.style.borderColor='rgba(255,255,255,0.06)'">
+                        <span class="pf-grp-arrow" style="font-size:10px;color:rgba(255,255,255,0.3);transition:transform 0.2s">▼</span>
+                        <span style="font-size:15px">${icon}</span>
+                        <span style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.85);flex:1">${instName}</span>
+                        <span style="padding:2px 8px;border-radius:4px;font-size:10px;background:rgba(59,130,246,0.1);color:rgba(59,130,246,0.6);border:1px solid rgba(59,130,246,0.15)">${instEntries.length} Forscher</span>
+                        <span style="padding:2px 8px;border-radius:4px;font-size:10px;background:rgba(52,211,153,0.1);color:rgba(52,211,153,0.6);border:1px solid rgba(52,211,153,0.15)">${totalPdfs} PDFs</span>
+                    </div>
+                    <div id="${groupId}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">`;
+                instEntries.forEach(([key, r]) => {
+                    const isVerified = r.tier === 'verified';
+                    const isComplete = (r.status||'').includes('COMPLETE');
+                    const borderColor = isComplete ? 'rgba(52,211,153,0.25)' : isVerified ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)';
+                    const bgColor = isComplete ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.015)';
+                    const displayName = r.name || key.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+                    const pdfCount = r.count || 0;
+                    const barWidth = Math.min(100, (pdfCount / 120) * 100);
+                    const fc = fieldColors2[r.field] || '255,255,255';
+                    const fl = fieldLabels2[r.field] || '';
+                    html += `<div onclick="pfShowDetail('${key}')" style="padding:12px 14px;background:${bgColor};border:1px solid ${borderColor};border-radius:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='${borderColor}'">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                            <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,${isVerified?'0.9':'0.6'})">${isComplete?'✅ ':isVerified?'📚 ':''}${displayName}</div>
+                            <span style="padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;background:rgba(${pdfCount>50?'52,211,153':pdfCount>10?'59,130,246':'255,255,255'},0.1);color:rgba(${pdfCount>50?'52,211,153':pdfCount>10?'59,130,246':'255,255,255'},0.6)">${pdfCount}</span>
+                        </div>
+                        <div style="height:2px;background:rgba(255,255,255,0.04);border-radius:1px;margin-bottom:6px;overflow:hidden">
+                            <div style="height:100%;width:${barWidth}%;background:rgba(${isComplete?'52,211,153':isVerified?'59,130,246':'255,255,255'},0.4);border-radius:1px"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            ${fl ? `<span style="padding:1px 6px;border-radius:3px;font-size:8px;background:rgba(${fc},0.08);color:rgba(${fc},0.6);letter-spacing:0.5px">${fl}</span>` : '<span></span>'}
+                        </div>
+                    </div>`;
+                });
+                html += '</div></div>';
+            });
+            html += `<div style="text-align:center;padding:10px;font-size:11px;color:rgba(255,255,255,0.2)">${entries.length} von ${Object.keys(researchers).length} Forschern · ${sortedGroups.length} Institutionen</div>`;
             grid.innerHTML = html;
         }
 
