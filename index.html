@@ -954,7 +954,7 @@
             </div>
 
             <!-- Content container -->
-            <div id="uni-content"></div>
+            <div id="uni-content"><div style="padding:20px;color:var(--text-muted)">⏳ Loading universities data...</div></div>
         </div>
     </section>
 
@@ -13736,12 +13736,20 @@ Schreibe detailliert, wissenschaftlich fundiert und praxisorientiert. Nutze Tabe
 
         async function loadUniversities() {
             const el = document.getElementById('uni-content');
-            if (!el) return;
-            if (!_uniData) _uniData = _UNI_KB_EMBEDDED;
-            uniRender();
+            if (!el) { console.error('UNI: uni-content not found'); return; }
+            try {
+                if (!_uniData) _uniData = _UNI_KB_EMBEDDED;
+                if (!_uniData) { el.innerHTML = '<div style="color:red;padding:20px">ERROR: No data loaded</div>'; return; }
+                console.log('UNI: Data loaded, professors:', _uniData?.stats?.professors);
+                uniRender();
+            } catch(e) {
+                el.innerHTML = '<div style="color:red;padding:20px">ERROR: ' + e.message + '</div>';
+                console.error('UNI Error:', e);
+            }
         }
 
         function uniRender() {
+            try {
             const el = document.getElementById('uni-content');
             const bc = document.getElementById('uni-breadcrumb');
             const stats = document.getElementById('uni-stats');
@@ -13775,6 +13783,11 @@ Schreibe detailliert, wissenschaftlich fundiert und praxisorientiert. Nutze Tabe
                 const prof = dept?.professors[_uniPath.prof];
                 bc.innerHTML = `<button class="uni-back" onclick="uniNav('universities')">🏛</button> <span style="color:var(--text-muted)">›</span> <button class="uni-back" onclick="uniNav('departments')">${uni?.short || ''}</button> <span style="color:var(--text-muted)">›</span> <button class="uni-back" onclick="uniNav('professors')">${dept?.name?.replace('Department of ','') || ''}</button> <span style="color:var(--text-muted)">›</span> <span style="color:var(--accent)">${prof?.name || ''}</span>`;
                 uniRenderPapers(el);
+            }
+            } catch(e) {
+                const el = document.getElementById('uni-content');
+                if(el) el.innerHTML = '<div style="color:red;padding:20px;font-family:monospace">uniRender Error: ' + e.message + '<br>' + e.stack + '</div>';
+                console.error('uniRender error:', e);
             }
         }
 
