@@ -13745,6 +13745,245 @@ Schreibe detailliert, wissenschaftlich fundiert und praxisorientiert. Nutze Tabe
             }
         }
 
+
+        // ── Universities Knowledge Base ───────────────────
+        let _uniData = null;
+        let _uniView = 'universities'; // universities | departments | professors | papers
+        let _uniPath = {}; // {uni, dept, prof}
+
+        const UNI_KB_URL = 'https://raw.githubusercontent.com/FehrAdvice-Partners-AG/complementarity-context-framework/main/data/university-knowledge-base.json';
+
+        async function loadUniversities() {
+            const el = document.getElementById('uni-content');
+            if (!el) return;
+            if (!_uniData) {
+                el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Lade Universitätsdaten...</div>';
+                try {
+                    const r = await fetch(UNI_KB_URL);
+                    _uniData = await r.json();
+                } catch(e) {
+                    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--error)">Fehler beim Laden der Daten.</div>';
+                    return;
+                }
+            }
+            uniRender();
+        }
+
+        function uniRender() {
+            const el = document.getElementById('uni-content');
+            const bc = document.getElementById('uni-breadcrumb');
+            const stats = document.getElementById('uni-stats');
+            if (!el) return;
+
+            // Stats
+            if (_uniData.stats) {
+                const s = _uniData.stats;
+                stats.innerHTML = `
+                    <span class="uni-stat"><b>${s.universities || 1}</b> Uni${s.universities>1?'s':''}</span>
+                    <span class="uni-stat"><b>${s.departments || 0}</b> Departments</span>
+                    <span class="uni-stat"><b>${s.professors || 0}</b> Professoren</span>
+                    <span class="uni-stat"><b>${s.pdfs_with_urls || 0}</b> PDFs</span>
+                `;
+            }
+
+            if (_uniView === 'universities') {
+                bc.innerHTML = '<span style="color:var(--accent)">🏛 Universitäten</span>';
+                uniRenderUniversities(el);
+            } else if (_uniView === 'departments') {
+                bc.innerHTML = `<button class="uni-back" onclick="uniNav('universities')">🏛 Universitäten</button> <span style="color:var(--text-muted)">›</span> <span style="color:var(--accent)">${_uniData.universities[_uniPath.uni]?.name || ''}</span>`;
+                uniRenderDepartments(el);
+            } else if (_uniView === 'professors') {
+                const uni = _uniData.universities[_uniPath.uni];
+                const dept = uni?.departments[_uniPath.dept];
+                bc.innerHTML = `<button class="uni-back" onclick="uniNav('universities')">🏛 Universitäten</button> <span style="color:var(--text-muted)">›</span> <button class="uni-back" onclick="uniNav('departments')">${uni?.short || uni?.name}</button> <span style="color:var(--text-muted)">›</span> <span style="color:var(--accent)">${dept?.name || ''}</span>`;
+                uniRenderProfessors(el);
+            } else if (_uniView === 'papers') {
+                const uni = _uniData.universities[_uniPath.uni];
+                const dept = uni?.departments[_uniPath.dept];
+                const prof = dept?.professors[_uniPath.prof];
+                bc.innerHTML = `<button class="uni-back" onclick="uniNav('universities')">🏛</button> <span style="color:var(--text-muted)">›</span> <button class="uni-back" onclick="uniNav('departments')">${uni?.short || ''}</button> <span style="color:var(--text-muted)">›</span> <button class="uni-back" onclick="uniNav('professors')">${dept?.name?.replace('Department of ','') || ''}</button> <span style="color:var(--text-muted)">›</span> <span style="color:var(--accent)">${prof?.name || ''}</span>`;
+                uniRenderPapers(el);
+            }
+        }
+
+        function uniNav(view, key) {
+            if (view === 'universities') { _uniView = 'universities'; _uniPath = {}; }
+            else if (view === 'departments') { _uniView = 'departments'; if(key) _uniPath.uni = key; }
+            else if (view === 'professors') { _uniView = 'professors'; if(key) _uniPath.dept = key; }
+            else if (view === 'papers') { _uniView = 'papers'; if(key) _uniPath.prof = key; }
+            uniRender();
+        }
+
+        function uniRenderUniversities(el) {
+            const unis = _uniData.universities;
+            let html = '<div class="uni-grid">';
+            for (const [key, uni] of Object.entries(unis)) {
+                const deptCount = Object.keys(uni.departments || {}).length;
+                let profCount = 0, paperCount = 0;
+                for (const dept of Object.values(uni.departments || {})) {
+                    profCount += Object.keys(dept.professors || {}).length;
+                    for (const prof of Object.values(dept.professors || {})) {
+                        paperCount += prof.zora_total || prof.papers?.length || 0;
+                    }
+                }
+                html += `
+                    <div class="uni-card" onclick="uniNav('departments','${key}')">
+                        <div class="uni-card-icon">🏛</div>
+                        <div class="uni-card-title">${uni.name}</div>
+                        <div class="uni-card-sub">${uni.short ? uni.short + ' — ' : ''}${_uniData.source || ''}</div>
+                        <div class="uni-card-stats">
+                            <span class="uni-stat"><b>${deptCount}</b> Departments</span>
+                            <span class="uni-stat"><b>${profCount}</b> Professoren</span>
+                            <span class="uni-stat"><b>${paperCount.toLocaleString()}</b> Papers (ZORA)</span>
+                        </div>
+                    </div>`;
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        }
+
+        function uniRenderDepartments(el) {
+            const uni = _uniData.universities[_uniPath.uni];
+            if (!uni) return;
+            let html = '<div class="uni-grid">';
+            const icons = {economics:'📊', business:'💼', finance:'📈'};
+            for (const [key, dept] of Object.entries(uni.departments || {})) {
+                const profs = Object.values(dept.professors || {});
+                const profCount = profs.length;
+                const paperCount = profs.reduce((s,p) => s + (p.zora_total||0), 0);
+                const pdfCount = profs.reduce((s,p) => s + (p.pdfs||0), 0);
+                const topProfs = profs.sort((a,b) => (b.zora_total||0) - (a.zora_total||0)).slice(0,3).map(p=>p.name).join(', ');
+                html += `
+                    <div class="uni-card" onclick="uniNav('professors','${key}')">
+                        <div class="uni-card-icon">${icons[key]||'📚'}</div>
+                        <div class="uni-card-title">${dept.name}</div>
+                        <div class="uni-card-sub">${topProfs}</div>
+                        <div class="uni-card-stats">
+                            <span class="uni-stat"><b>${profCount}</b> Professoren</span>
+                            <span class="uni-stat"><b>${paperCount.toLocaleString()}</b> Papers</span>
+                            <span class="uni-stat"><b>${pdfCount}</b> PDFs verfügbar</span>
+                        </div>
+                    </div>`;
+            }
+            html += '</div>';
+            el.innerHTML = html;
+        }
+
+        function uniRenderProfessors(el) {
+            const dept = _uniData.universities[_uniPath.uni]?.departments[_uniPath.dept];
+            if (!dept) return;
+            let profs = Object.entries(dept.professors || {});
+            // Filter
+            const q = (document.getElementById('uni-search')?.value || '').toLowerCase();
+            if (q) profs = profs.filter(([k,p]) => p.name.toLowerCase().includes(q) || p.field?.toLowerCase().includes(q));
+            // Sort by zora_total desc
+            profs.sort((a,b) => (b[1].zora_total||0) - (a[1].zora_total||0));
+
+            let html = '<div class="uni-grid">';
+            for (const [key, prof] of profs) {
+                const initials = prof.name.split(' ').map(n=>n[0]).join('').slice(0,2);
+                const pdfPct = prof.papers?.length ? Math.round(prof.pdfs / prof.papers.length * 100) : 0;
+                html += `
+                    <div class="uni-card" onclick="uniNav('papers','${key}')">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                            <div class="uni-prof-avatar">${initials}</div>
+                            <div>
+                                <div class="uni-card-title" style="margin-bottom:2px">${prof.name}</div>
+                                <div style="font-size:12px;color:var(--text-secondary)">${prof.field || ''}</div>
+                            </div>
+                        </div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${prof.chair || ''}</div>
+                        <div class="uni-card-stats">
+                            <span class="uni-stat"><b>${prof.zora_total||0}</b> in ZORA</span>
+                            <span class="uni-stat"><b>${prof.pdfs||0}</b> PDFs</span>
+                            <span class="uni-stat"><b>${pdfPct}%</b> verfügbar</span>
+                        </div>
+                    </div>`;
+            }
+            html += '</div>';
+            if (profs.length === 0) html = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Keine Professoren gefunden.</div>';
+            el.innerHTML = html;
+        }
+
+        function uniRenderPapers(el) {
+            const dept = _uniData.universities[_uniPath.uni]?.departments[_uniPath.dept];
+            const prof = dept?.professors[_uniPath.prof];
+            if (!prof) return;
+
+            const initials = prof.name.split(' ').map(n=>n[0]).join('').slice(0,2);
+            let papers = prof.papers || [];
+
+            // Filter
+            const q = (document.getElementById('uni-search')?.value || '').toLowerCase();
+            if (q) papers = papers.filter(p => p.t?.toLowerCase().includes(q) || p.j?.toLowerCase().includes(q) || p.y?.includes(q));
+
+            let html = `
+                <div class="uni-prof-header">
+                    <div class="uni-prof-avatar" style="width:64px;height:64px;font-size:26px">${initials}</div>
+                    <div class="uni-prof-info">
+                        <h3>${prof.name}</h3>
+                        <p>${prof.field || ''} · ${prof.chair || ''}</p>
+                        <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
+                            <span class="uni-badge">${prof.zora_total||0} Papers in ZORA</span>
+                            <span class="uni-badge" style="background:rgba(52,211,153,0.1);color:var(--success);border-color:rgba(52,211,153,0.2)">${prof.pdfs||0} PDFs verfügbar</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom:16px;font-size:13px;color:var(--text-muted)">Zeige ${papers.length} von ${prof.zora_total||papers.length} Papers (neueste zuerst)</div>
+            `;
+
+            for (const p of papers) {
+                const hasPdf = !!p.pdf;
+                html += `
+                    <div class="uni-paper">
+                        <div class="uni-paper-title">${p.t || 'Untitled'}</div>
+                        <div class="uni-paper-meta">
+                            ${p.y ? `<span>📅 ${p.y}</span>` : ''}
+                            ${p.j ? `<span>📰 ${p.j}</span>` : ''}
+                        </div>
+                        <div class="uni-paper-actions">
+                            ${hasPdf ? `<a href="${p.pdf}" target="_blank" class="uni-btn-sm uni-btn-pdf" onclick="event.stopPropagation()">📄 PDF öffnen</a>` : '<span class="uni-btn-sm" style="border-color:var(--border);color:var(--text-muted);cursor:default">Kein PDF</span>'}
+                            ${hasPdf ? `<button class="uni-btn-sm uni-btn-import" onclick="uniImport(this,'${encodeURIComponent(p.pdf)}','${encodeURIComponent(p.t||'')}')">⬇ Import to BEATRIX</button>` : ''}
+                        </div>
+                    </div>`;
+            }
+
+            if (papers.length === 0) html += '<div style="text-align:center;padding:40px;color:var(--text-muted)">Keine Papers gefunden.</div>';
+            el.innerHTML = html;
+        }
+
+        async function uniImport(btn, pdfUrlEnc, titleEnc) {
+            const pdfUrl = decodeURIComponent(pdfUrlEnc);
+            const title = decodeURIComponent(titleEnc);
+            btn.disabled = true;
+            btn.textContent = '⏳ Importiere...';
+            try {
+                const token = localStorage.getItem('token');
+                const r = await fetch(API+'/api/papers/upload-url', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+                    body: JSON.stringify({url: pdfUrl, title: title})
+                });
+                if (r.ok) {
+                    btn.textContent = '✅ Importiert';
+                    btn.classList.add('imported');
+                    showToast('Paper importiert: ' + title.slice(0,50), 'success');
+                } else {
+                    const d = await r.json().catch(()=>({}));
+                    throw new Error(d.detail || 'Import fehlgeschlagen');
+                }
+            } catch(e) {
+                btn.disabled = false;
+                btn.textContent = '⬇ Import to BEATRIX';
+                showToast(e.message || 'Import fehlgeschlagen', 'error');
+            }
+        }
+
+        function uniFilter() {
+            if (_uniView === 'professors' || _uniView === 'papers') uniRender();
+        }
+
+
         checkAuth();
     </script>
 
