@@ -13958,16 +13958,19 @@ Schreibe detailliert, wissenschaftlich fundiert und praxisorientiert. Nutze Tabe
             btn.disabled = true;
             btn.textContent = '⏳ Importiere...';
             try {
-                const token = localStorage.getItem('token');
-                const r = await fetch(API+'/api/papers/upload-url', {
+                const r = await fetch(`${API}/papers/fetch-and-upload`, {
                     method:'POST',
-                    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+                    headers:{'Content-Type':'application/json', ...H()},
                     body: JSON.stringify({url: pdfUrl, title: title})
                 });
                 if (r.ok) {
                     btn.textContent = '✅ Importiert';
                     btn.classList.add('imported');
                     showToast('Paper importiert: ' + title.slice(0,50), 'success');
+                } else if (r.status === 409) {
+                    btn.textContent = '✅ Bereits vorhanden';
+                    btn.classList.add('imported');
+                    showToast('Paper bereits in BEATRIX', 'info');
                 } else {
                     const d = await r.json().catch(()=>({}));
                     throw new Error(d.detail || 'Import fehlgeschlagen');
