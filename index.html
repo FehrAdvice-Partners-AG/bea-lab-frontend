@@ -883,6 +883,8 @@
                     <button onclick="loadPaperFinder()" style="padding:8px 16px;background:rgba(42,127,142,0.12);border:1px solid rgba(42,127,142,0.3);border-radius:10px;color:var(--accent);font-size:12px;cursor:pointer">🔄 Aktualisieren</button>
                 </div>
             </div>
+            <!-- Filter bar -->
+            <div id="pfFilterBar" style="display:none;margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap"></div>
             <!-- Algorithm info -->
             <div id="pfAlgoInfo" style="margin-bottom:16px;padding:12px 16px;background:rgba(42,127,142,0.05);border:1px solid rgba(42,127,142,0.15);border-radius:10px;display:none">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -9823,6 +9825,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
         // ═══ PAPER FINDER ═══
         let _pfData = null;
+        let _pfFilter = 'all';
 
         async function loadPaperFinder() {
             const grid = document.getElementById('pfResearcherGrid');
@@ -9839,21 +9842,52 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             }
         }
 
+        function pfSetFilter(filter, btn) {
+            _pfFilter = filter;
+            document.querySelectorAll('#pfFilterBar .pf-filter').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+            });
+            if (btn) { btn.classList.add('active'); btn.style.background = 'rgba(255,255,255,0.06)'; }
+            renderPaperFinder();
+        }
+
         function renderPaperFinder() {
             if (!_pfData) return;
             const grid = document.getElementById('pfResearcherGrid');
             const stats = document.getElementById('pfStatsBar');
             const algo = document.getElementById('pfAlgoInfo');
+            const filterBar = document.getElementById('pfFilterBar');
             const researchers = _pfData.researchers || {};
             const s = _pfData.stats || {};
 
             // Stats bar
             if (stats) {
-                const complete = Object.values(researchers).filter(r => (r.status||'').includes('COMPLETE')).length;
                 stats.innerHTML = `
-                    <span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(52,211,153,0.1);color:rgba(52,211,153,0.7);border:1px solid rgba(52,211,153,0.15)">${s.total_verified_pdfs || 0} PDFs</span>
-                    <span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(59,130,246,0.1);color:rgba(59,130,246,0.7);border:1px solid rgba(59,130,246,0.15)">${s.researchers || 0} Forscher</span>
-                    <span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(139,92,246,0.1);color:rgba(139,92,246,0.7);border:1px solid rgba(139,92,246,0.15)">${complete} komplett</span>`;
+                    <span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(52,211,153,0.1);color:rgba(52,211,153,0.7);border:1px solid rgba(52,211,153,0.15)">${s.total_verified_pdfs || 0} verified PDFs</span>
+                    <span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(59,130,246,0.1);color:rgba(59,130,246,0.7);border:1px solid rgba(59,130,246,0.15)">${s.total_researchers || 0} Forscher</span>
+                    <span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(139,92,246,0.1);color:rgba(139,92,246,0.7);border:1px solid rgba(139,92,246,0.15)">~${s.total_estimated_pdfs || 0} est. PDFs</span>`;
+            }
+
+            // Filter bar
+            if (filterBar) {
+                const fieldLabels = {all:'Alle',verified:'✅ Verified',discovered:'🔍 Discovered',behavioral_econ:'Behavioral Econ',experimental:'Experimental',psychology:'Psychology',neuro:'Neuro',labor:'Labor/Public',social_pref:'Social Pref',development:'Development',decision:'Decision Theory',info_econ:'Info Econ',market_design:'Market Design',policy:'Public Policy',org_econ:'Organizations',health:'Health',institutions:'Institutions',ai_econ:'AI+Econ',behavioral_finance:'Beh. Finance'};
+                const fieldColors = {all:'255,255,255',verified:'52,211,153',discovered:'59,130,246',behavioral_econ:'251,191,36',experimental:'139,92,246',psychology:'248,113,113',neuro:'236,72,153',labor:'52,211,153',social_pref:'59,130,246',development:'251,191,36',decision:'139,92,246',info_econ:'168,85,247',market_design:'52,211,153',policy:'59,130,246',org_econ:'251,191,36',health:'248,113,113',institutions:'168,85,247',ai_econ:'52,211,153',behavioral_finance:'251,191,36'};
+                const fields = s.fields || {};
+                let filterHtml = '';
+                ['all','verified','discovered'].forEach(f => {
+                    const c = fieldColors[f]||'255,255,255';
+                    const count = f==='all' ? Object.keys(researchers).length : f==='verified' ? (s.verified_researchers||0) : (s.discovered_researchers||0);
+                    filterHtml += `<button class="pf-filter ${_pfFilter===f?'active':''}" onclick="pfSetFilter('${f}',this)" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(${c},0.2);background:${_pfFilter===f?'rgba(255,255,255,0.06)':'transparent'};color:rgba(${c},0.7);font-size:10px;cursor:pointer">${fieldLabels[f]||f} (${count})</button>`;
+                });
+                filterHtml += '<span style="width:1px;height:16px;background:rgba(255,255,255,0.08);margin:0 4px"></span>';
+                Object.entries(fields).sort((a,b)=>b[1]-a[1]).forEach(([f,count]) => {
+                    if (f==='unknown') return;
+                    const c = fieldColors[f]||'255,255,255';
+                    filterHtml += `<button class="pf-filter ${_pfFilter===f?'active':''}" onclick="pfSetFilter('${f}',this)" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(${c},0.15);background:${_pfFilter===f?'rgba(255,255,255,0.06)':'transparent'};color:rgba(${c},0.6);font-size:10px;cursor:pointer">${fieldLabels[f]||f} (${count})</button>`;
+                });
+                filterBar.style.display = 'flex';
+                filterBar.innerHTML = filterHtml;
             }
 
             // Algorithm info
@@ -9869,39 +9903,52 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 }
             }
 
-            // Sort researchers: complete first, then by PDF count
-            const sorted = Object.entries(researchers).sort((a,b) => {
-                const aComplete = (a[1].status||'').includes('COMPLETE') ? 1 : 0;
-                const bComplete = (b[1].status||'').includes('COMPLETE') ? 1 : 0;
-                if (aComplete !== bComplete) return bComplete - aComplete;
+            // Filter researchers
+            let entries = Object.entries(researchers);
+            if (_pfFilter === 'verified') entries = entries.filter(([,r]) => r.tier === 'verified');
+            else if (_pfFilter === 'discovered') entries = entries.filter(([,r]) => r.tier === 'discovered');
+            else if (_pfFilter !== 'all') entries = entries.filter(([,r]) => r.field === _pfFilter);
+
+            // Sort: verified first, then by count
+            entries.sort((a,b) => {
+                const aV = a[1].tier === 'verified' ? 1 : 0;
+                const bV = b[1].tier === 'verified' ? 1 : 0;
+                if (aV !== bV) return bV - aV;
                 return (b[1].count||0) - (a[1].count||0);
             });
 
-            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
-            sorted.forEach(([key, r]) => {
+            const fieldColors2 = {behavioral_econ:'251,191,36',experimental:'139,92,246',psychology:'248,113,113',neuro:'236,72,153',labor:'52,211,153',social_pref:'59,130,246',development:'251,191,36',decision:'139,92,246',info_econ:'168,85,247',market_design:'52,211,153',policy:'59,130,246',org_econ:'251,191,36',health:'248,113,113',institutions:'168,85,247',ai_econ:'52,211,153',behavioral_finance:'251,191,36'};
+            const fieldLabels2 = {behavioral_econ:'BE',experimental:'EXP',psychology:'PSY',neuro:'NEU',labor:'LAB',social_pref:'SOC',development:'DEV',decision:'DEC',info_econ:'INFO',market_design:'MKT',policy:'POL',org_econ:'ORG',health:'HLT',institutions:'INST',ai_econ:'AI',behavioral_finance:'FIN'};
+
+            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+            entries.forEach(([key, r]) => {
+                const isVerified = r.tier === 'verified';
                 const isComplete = (r.status||'').includes('COMPLETE');
-                const borderColor = isComplete ? 'rgba(52,211,153,0.25)' : 'rgba(255,255,255,0.06)';
-                const bgColor = isComplete ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)';
-                const name = key.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+                const borderColor = isComplete ? 'rgba(52,211,153,0.25)' : isVerified ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)';
+                const bgColor = isComplete ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.015)';
+                const displayName = r.name || key.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
                 const pdfCount = r.count || 0;
                 const barWidth = Math.min(100, (pdfCount / 120) * 100);
-                const sources = r.primary_sources ? Object.keys(r.primary_sources) : [];
+                const fc = fieldColors2[r.field] || '255,255,255';
+                const fl = fieldLabels2[r.field] || '';
+                const inst = r.institution ? `<span style="font-size:9px;color:rgba(255,255,255,0.25)">${r.institution}</span>` : '';
 
-                html += `<div onclick="pfShowDetail('${key}')" style="padding:16px;background:${bgColor};border:1px solid ${borderColor};border-radius:12px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='rgba(42,127,142,0.06)'" onmouseleave="this.style.borderColor='${borderColor}';this.style.background='${bgColor}'">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                        <div style="font-size:13px;font-weight:600;color:${isComplete ? 'rgba(52,211,153,0.9)' : 'rgba(255,255,255,0.8)'}">${isComplete ? '✅ ' : ''}${name}</div>
-                        <span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:rgba(${pdfCount > 50 ? '52,211,153' : pdfCount > 10 ? '59,130,246' : '255,255,255'},0.1);color:rgba(${pdfCount > 50 ? '52,211,153' : pdfCount > 10 ? '59,130,246' : '255,255,255'},0.7)">${pdfCount}</span>
+                html += `<div onclick="pfShowDetail('${key}')" style="padding:12px 14px;background:${bgColor};border:1px solid ${borderColor};border-radius:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='${borderColor}'">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,${isVerified?'0.9':'0.6'})">${isComplete?'✅ ':isVerified?'📚 ':''}${displayName}</div>
+                        <span style="padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;background:rgba(${pdfCount>50?'52,211,153':pdfCount>10?'59,130,246':'255,255,255'},0.1);color:rgba(${pdfCount>50?'52,211,153':pdfCount>10?'59,130,246':'255,255,255'},0.6)">${pdfCount}</span>
                     </div>
-                    <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;margin-bottom:8px;overflow:hidden">
-                        <div style="height:100%;width:${barWidth}%;background:${isComplete ? 'rgba(52,211,153,0.5)' : 'rgba(59,130,246,0.4)'};border-radius:2px;transition:width 0.3s"></div>
+                    <div style="height:2px;background:rgba(255,255,255,0.04);border-radius:1px;margin-bottom:6px;overflow:hidden">
+                        <div style="height:100%;width:${barWidth}%;background:rgba(${isComplete?'52,211,153':isVerified?'59,130,246':'255,255,255'},0.4);border-radius:1px"></div>
                     </div>
-                    <div style="display:flex;gap:4px;flex-wrap:wrap">
-                        ${sources.slice(0,3).map(s => `<span style="padding:1px 6px;border-radius:3px;font-size:9px;background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.35)">${s}</span>`).join('')}
-                        ${sources.length > 3 ? `<span style="font-size:9px;color:rgba(255,255,255,0.2)">+${sources.length-3}</span>` : ''}
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        ${fl ? `<span style="padding:1px 6px;border-radius:3px;font-size:8px;background:rgba(${fc},0.08);color:rgba(${fc},0.6);letter-spacing:0.5px">${fl}</span>` : '<span></span>'}
+                        ${inst}
                     </div>
                 </div>`;
             });
             html += '</div>';
+            html += `<div style="text-align:center;padding:10px;font-size:11px;color:rgba(255,255,255,0.2)">${entries.length} von ${Object.keys(researchers).length} Forschern</div>`;
             grid.innerHTML = html;
         }
 
