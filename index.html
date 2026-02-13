@@ -14086,7 +14086,7 @@ Schreibe detailliert, wissenschaftlich fundiert und praxisorientiert. Nutze Tabe
                             ${p.j ? `<span>📰 ${p.j}</span>` : ''}
                         </div>
                         <div class="uni-paper-actions">
-                            ${hasPdf ? `<a href="${p.pdf}" target="_blank" class="uni-btn-sm uni-btn-pdf" onclick="event.stopPropagation()">📄 PDF öffnen</a>` : '<span class="uni-btn-sm" style="border-color:var(--border);color:var(--text-muted);cursor:default">Kein PDF</span>'}
+                            ${hasPdf ? `<a href="${_beaApiBase}/api/pdf-view?url=${encodeURIComponent(p.pdf)}" target="_blank" class="uni-btn-sm uni-btn-pdf" onclick="event.stopPropagation()">📄 PDF ansehen</a>` : '<span class="uni-btn-sm" style="border-color:var(--border);color:var(--text-muted);cursor:default">Kein PDF</span>'}
                             ${hasPdf ? `<button class="uni-btn-sm uni-btn-import" onclick="uniImport(this,'${encodeURIComponent(p.pdf)}','${encodeURIComponent(p.t||'')}')">⬇ Import to BEATRIX</button>` : ''}
                         </div>
                     </div>`;
