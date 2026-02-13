@@ -1,22 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <defs>
-    <style>
-      .seal { fill: none; stroke: #0028a5; stroke-width: 3; }
-      .inner { fill: none; stroke: #0028a5; stroke-width: 1.5; }
-      .text { font-family: Georgia, 'Times New Roman', serif; fill: #0028a5; }
-    </style>
-  </defs>
-  <!-- Outer circle -->
-  <circle class="seal" cx="100" cy="100" r="90"/>
-  <!-- Inner circle -->
-  <circle class="inner" cx="100" cy="100" r="72"/>
-  <!-- UZH text -->
-  <text class="text" x="100" y="112" text-anchor="middle" font-size="48" font-weight="bold">UZH</text>
-  <!-- Universität Zürich around the seal -->
-  <path id="topArc" d="M 30,100 a 70,70 0 0,1 140,0" fill="none"/>
-  <text class="text" font-size="13">
-    <textPath href="#topArc" startOffset="50%" text-anchor="middle">UNIVERSITÄT ZÜRICH</textPath>
-  </text>
-  <!-- Year -->
-  <text class="text" x="100" y="148" text-anchor="middle" font-size="14">1833</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50" width="120" height="50">
+  <text x="60" y="38" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="40" font-weight="bold" fill="white" letter-spacing="4">UZH</text>
 </svg>
