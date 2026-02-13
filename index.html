@@ -511,6 +511,34 @@
             .mb-mode-cards { grid-template-columns:1fr !important; }
             .mb-choices { grid-template-columns:1fr !important; }
         }
+        /* ── Universities ─────────────────────── */
+        .uni-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+        .uni-card { background:var(--navy-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; cursor:pointer; transition:var(--transition); position:relative; overflow:hidden; }
+        .uni-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.3); }
+        .uni-card-icon { font-size:28px; margin-bottom:12px; }
+        .uni-card-title { font-size:16px; font-weight:700; color:var(--white); margin-bottom:4px; }
+        .uni-card-sub { font-size:13px; color:var(--text-secondary); margin-bottom:12px; line-height:1.5; }
+        .uni-card-stats { display:flex; gap:12px; flex-wrap:wrap; }
+        .uni-stat { font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:4px; }
+        .uni-stat b { color:var(--accent-light); font-weight:600; }
+        .uni-back { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; background:var(--navy-light); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-secondary); font-size:13px; cursor:pointer; transition:var(--transition); border:none; font-family:inherit; }
+        .uni-back:hover { color:var(--accent-light); }
+        .uni-paper { background:var(--navy-card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; margin-bottom:8px; transition:var(--transition); }
+        .uni-paper:hover { border-color:var(--border-light); }
+        .uni-paper-title { font-size:14px; font-weight:600; color:var(--text); margin-bottom:6px; line-height:1.5; }
+        .uni-paper-meta { font-size:12px; color:var(--text-muted); display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+        .uni-paper-actions { display:flex; gap:8px; margin-top:10px; }
+        .uni-btn-sm { padding:5px 12px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; transition:var(--transition); border:1px solid; font-family:inherit; }
+        .uni-btn-pdf { background:rgba(52,211,153,0.1); border-color:rgba(52,211,153,0.3); color:var(--success); text-decoration:none; display:inline-flex; align-items:center; gap:4px; }
+        .uni-btn-pdf:hover { background:rgba(52,211,153,0.2); }
+        .uni-btn-import { background:var(--accent-glow); border-color:rgba(91,138,245,0.3); color:var(--accent-light); }
+        .uni-btn-import:hover { background:var(--accent-glow-strong); }
+        .uni-btn-import.imported { background:rgba(52,211,153,0.1); border-color:rgba(52,211,153,0.3); color:var(--success); pointer-events:none; }
+        .uni-prof-header { display:flex; align-items:center; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+        .uni-prof-avatar { width:56px; height:56px; border-radius:50%; background:var(--navy-mid); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; color:var(--accent); flex-shrink:0; }
+        .uni-prof-info h3 { font-size:20px; font-weight:700; color:var(--white); }
+        .uni-prof-info p { font-size:13px; color:var(--text-secondary); }
+        .uni-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; background:var(--accent-glow); color:var(--accent-light); border:1px solid rgba(91,138,245,0.2); }
     </style>
 </head>
 <body>
@@ -659,6 +687,10 @@
                     <a class="nav-dropdown-item" data-section="paperfinder" onclick="navDropClick('paperfinder',this)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
                         Paper Finder
+                    </a>
+                    <a class="nav-dropdown-item" data-section="universities" onclick="navDropClick('universities',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20"/><path d="M6 18V7"/><path d="M18 18V7"/><path d="M2 7l10-5 10 5"/><path d="M10 11h4v7h-4z"/></svg>
+                        Universitäten
                     </a>
                 </div>
             </div>
@@ -899,6 +931,51 @@
             </div>
             <!-- Detail panel (shown when clicking a researcher) -->
             <div id="pfDetailPanel" style="display:none;margin-top:16px;padding:20px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px"></div>
+        </div>
+    </section>
+
+    <!-- ═══════ UNIVERSITIES SECTION ═══════ -->
+    <section class="section" id="universities-section">
+        <div class="container">
+            <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2>🏛 Universitäten</h2>
+                    <p>Forschungspapiere nach Universität, Department und Professor — direkt aus institutionellen Repositorien.</p>
+                </div>
+                <div id="uni-stats" style="display:flex;gap:16px;flex-wrap:wrap"></div>
+            </div>
+
+            <!-- Breadcrumb -->
+            <div id="uni-breadcrumb" style="display:flex;align-items:center;gap:8px;margin-bottom:20px;font-size:13px;color:var(--text-secondary)"></div>
+
+            <!-- Search -->
+            <div style="margin-bottom:24px">
+                <input type="text" id="uni-search" placeholder="Professor oder Paper suchen..." oninput="uniFilter()" style="width:100%;padding:12px 16px;background:var(--navy-light);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:var(--transition)" onfocus="this.style.borderColor=&apos;var(--accent)&apos;" onblur="this.style.borderColor=&apos;var(--border)&apos;">
+            </div>
+
+            <!-- Content container -->
+            <div id="uni-content"></div>
+        </div>
+    </section>
+
+    <!-- ═══════ UNIVERSITIES SECTION ═══════ -->
+    <section class="section" id="universities-section">
+        <div class="container">
+            <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2>🏛 Universitäten</h2>
+                    <p>Forschungsliteratur nach Universität, Department und Professor — mit direktem PDF-Zugang via institutionelle Repositorien.</p>
+                </div>
+                <div id="uniStats" style="display:flex;gap:16px;font-size:13px;color:var(--text-secondary)"></div>
+            </div>
+
+            <!-- Breadcrumb -->
+            <div id="uniBreadcrumb" style="display:flex;align-items:center;gap:8px;margin-bottom:20px;font-size:13px;color:var(--text-secondary);flex-wrap:wrap"></div>
+
+            <!-- Content area -->
+            <div id="uniContent" style="min-height:300px">
+                <div style="text-align:center;padding:60px 0;color:var(--text-muted)">Lade Daten…</div>
+            </div>
         </div>
     </section>
 
@@ -3379,6 +3456,8 @@
             if(name==='documents') loadDocuments();
             if(name==='uploadpriority') loadUploadPriority();
             if(name==='paperfinder') loadPaperFinder();
+            if(name==='universities') loadUniversities();
+            if(name==='universities') loadUniversities();
             if(name==='admin') loadAdminData();
             if(name==='context') caInit();
             if(name==='leads') crmLoad();
@@ -3441,6 +3520,7 @@
             const sec=document.getElementById(section+'-section'); if(sec) sec.classList.add('active');
             document.getElementById('hero-section').style.display = (section==='upload') ? '' : 'none';
             if(section==='documents') loadDocuments();
+            if(section==='universities') loadUniversities();
             if(section==='admin') loadAdminData();
             if(section==='context') caInit();
             if(section==='leads') crmLoad();
@@ -13945,6 +14025,170 @@ Schreibe detailliert, wissenschaftlich fundiert und praxisorientiert. Nutze Tabe
             fbClose(); showToast('Feedback gesendet – danke! 🙏', 'success');
         } catch(e) { showToast('Senden fehlgeschlagen', 'error'); console.error(e); }
         btn.disabled = false; btn.textContent = 'Senden ➤';
+    }
+    // ═══════ UNIVERSITIES MODULE ═══════
+    let uniData = null;
+    let uniView = 'universities'; // universities | departments | professors | papers
+    let uniState = { uni: null, dept: null, prof: null };
+
+    async function loadUniversities() {
+        if (uniData) { renderUniView(); return; }
+        const el = document.getElementById('uniContent');
+        el.innerHTML = '<div style="text-align:center;padding:60px 0;color:var(--text-muted)"><div class="spinner" style="margin:0 auto 16px"></div>Lade Knowledge Base von GitHub…</div>';
+        try {
+            const resp = await fetch('https://raw.githubusercontent.com/FehrAdvice-Partners-AG/complementarity-context-framework/main/data/university-knowledge-base.json');
+            uniData = await resp.json();
+            renderUniView();
+        } catch(e) {
+            el.innerHTML = '<div style="text-align:center;padding:60px;color:var(--error)">Fehler beim Laden: '+e.message+'</div>';
+        }
+    }
+
+    function renderUniView() {
+        const el = document.getElementById('uniContent');
+        const bc = document.getElementById('uniBreadcrumb');
+        const st = document.getElementById('uniStats');
+
+        if (uniView === 'universities') {
+            renderUniversityList(el, bc, st);
+        } else if (uniView === 'departments') {
+            renderDepartmentList(el, bc, st);
+        } else if (uniView === 'professors') {
+            renderProfessorList(el, bc, st);
+        } else if (uniView === 'papers') {
+            renderPaperList(el, bc, st);
+        }
+    }
+
+    function uniNav(view, state) {
+        uniView = view;
+        Object.assign(uniState, state || {});
+        renderUniView();
+    }
+
+    function renderUniversityList(el, bc, st) {
+        bc.innerHTML = '<span style="color:var(--accent)">🏛 Universitäten</span>';
+        const s = uniData.stats;
+        st.innerHTML = `<span>${s.universities} Uni</span><span>·</span><span>${s.departments} Departments</span><span>·</span><span>${s.professors} Professoren</span><span>·</span><span>${s.pdfs_with_urls} PDFs</span>`;
+
+        let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">';
+        for (const [uniKey, uni] of Object.entries(uniData.universities)) {
+            const depts = Object.keys(uni.departments).length;
+            const profs = Object.values(uni.departments).reduce((a,d) => a + Object.keys(d.professors).length, 0);
+            const papers = Object.values(uni.departments).reduce((a,d) => a + Object.values(d.professors).reduce((b,p) => b + p.zora_total, 0), 0);
+            html += `
+            <div onclick="uniNav('departments',{uni:'${uniKey}'})" style="background:var(--navy-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;cursor:pointer;transition:var(--transition);position:relative;overflow:hidden" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
+                <div style="font-size:32px;margin-bottom:12px">🏛</div>
+                <div style="font-size:18px;font-weight:700;color:var(--white);margin-bottom:4px">${uni.name}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:16px">${uni.short} · ${uniData.source}</div>
+                <div style="display:flex;gap:20px;font-size:13px;color:var(--text-secondary)">
+                    <span><strong style="color:var(--accent)">${depts}</strong> Departments</span>
+                    <span><strong style="color:var(--accent)">${profs}</strong> Professoren</span>
+                    <span><strong style="color:var(--accent)">${papers.toLocaleString()}</strong> Papers</span>
+                </div>
+            </div>`;
+        }
+        html += '</div>';
+        el.innerHTML = html;
+    }
+
+    function renderDepartmentList(el, bc, st) {
+        const uni = uniData.universities[uniState.uni];
+        bc.innerHTML = `<a onclick="uniNav('universities')" style="cursor:pointer;color:var(--accent)">🏛 Universitäten</a><span style="color:var(--text-muted)">›</span><span style="color:var(--white)">${uni.name}</span>`;
+        st.innerHTML = '';
+
+        let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">';
+        for (const [deptKey, dept] of Object.entries(uni.departments)) {
+            const profs = Object.keys(dept.professors).length;
+            const papers = Object.values(dept.professors).reduce((a,p) => a + p.zora_total, 0);
+            const pdfs = Object.values(dept.professors).reduce((a,p) => a + p.pdfs, 0);
+
+            // Top 3 professors by paper count
+            const topProfs = Object.values(dept.professors).sort((a,b) => b.zora_total - a.zora_total).slice(0,3);
+
+            html += `
+            <div onclick="uniNav('professors',{dept:'${deptKey}'})" style="background:var(--navy-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;cursor:pointer;transition:var(--transition)" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+                <div style="font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px">${dept.name}</div>
+                <div style="display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin-bottom:16px">
+                    <span>${profs} Professoren</span><span>${papers.toLocaleString()} Papers</span><span>${pdfs} PDFs</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                    ${topProfs.map(p => `<div style="font-size:12px;color:var(--text-secondary)"><span style="color:var(--text)">${p.name}</span> · ${p.field} · <span style="color:var(--accent)">${p.zora_total}</span></div>`).join('')}
+                </div>
+            </div>`;
+        }
+        html += '</div>';
+        el.innerHTML = html;
+    }
+
+    function renderProfessorList(el, bc, st) {
+        const uni = uniData.universities[uniState.uni];
+        const dept = uni.departments[uniState.dept];
+        bc.innerHTML = `<a onclick="uniNav('universities')" style="cursor:pointer;color:var(--accent)">🏛</a><span style="color:var(--text-muted)">›</span><a onclick="uniNav('departments',{uni:'${uniState.uni}'})" style="cursor:pointer;color:var(--accent)">${uni.short}</a><span style="color:var(--text-muted)">›</span><span style="color:var(--white)">${dept.name}</span>`;
+
+        const profs = Object.entries(dept.professors).sort((a,b) => b[1].zora_total - a[1].zora_total);
+        st.innerHTML = `<span>${profs.length} Professoren</span>`;
+
+        let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
+        for (const [profKey, prof] of profs) {
+            const pdfPct = prof.papers.length > 0 ? Math.round(prof.pdfs / prof.papers.length * 100) : 0;
+            html += `
+            <div onclick="uniNav('papers',{prof:'${profKey}'})" style="background:var(--navy-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:18px;cursor:pointer;transition:var(--transition);display:flex;align-items:flex-start;gap:14px" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+                <div style="width:42px;height:42px;border-radius:50%;background:var(--accent-glow);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;color:var(--accent);font-weight:700">${prof.name.charAt(0)}</div>
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:600;color:var(--white);margin-bottom:2px">${prof.name}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">${prof.field} · ${prof.chair}</div>
+                    <div style="display:flex;gap:12px;font-size:12px;color:var(--text-secondary)">
+                        <span><strong style="color:var(--accent)">${prof.zora_total}</strong> in ZORA</span>
+                        <span><strong style="color:var(--success)">${prof.pdfs}</strong> PDFs</span>
+                    </div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;margin-top:4px"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>`;
+        }
+        html += '</div>';
+        el.innerHTML = html;
+    }
+
+    function renderPaperList(el, bc, st) {
+        const uni = uniData.universities[uniState.uni];
+        const dept = uni.departments[uniState.dept];
+        const prof = dept.professors[uniState.prof];
+
+        bc.innerHTML = `<a onclick="uniNav('universities')" style="cursor:pointer;color:var(--accent)">🏛</a><span style="color:var(--text-muted)">›</span><a onclick="uniNav('departments',{uni:'${uniState.uni}'})" style="cursor:pointer;color:var(--accent)">${uni.short}</a><span style="color:var(--text-muted)">›</span><a onclick="uniNav('professors',{dept:'${uniState.dept}'})" style="cursor:pointer;color:var(--accent)">${dept.name.replace('Department of ','')}</a><span style="color:var(--text-muted)">›</span><span style="color:var(--white)">${prof.name}</span>`;
+
+        st.innerHTML = `<span>${prof.zora_total} in ZORA gesamt</span><span>·</span><span>${prof.pdfs} PDFs geladen</span>`;
+
+        let html = `
+        <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;display:flex;align-items:center;gap:20px">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--accent-glow);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--accent);font-weight:700;flex-shrink:0">${prof.name.charAt(0)}</div>
+            <div>
+                <div style="font-size:20px;font-weight:700;color:var(--white)">${prof.name}</div>
+                <div style="font-size:13px;color:var(--text-secondary)">${prof.field} · ${prof.chair} · ${uni.short}</div>
+            </div>
+            ${prof.zora_total > prof.papers.length ? `<div style="margin-left:auto;font-size:12px;color:var(--text-muted);background:var(--navy-light);padding:6px 12px;border-radius:6px">Zeigt ${prof.papers.length} von ${prof.zora_total} Papers</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">`;
+
+        for (const paper of prof.papers) {
+            const hasPdf = !!paper.pdf;
+            html += `
+            <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;display:flex;align-items:flex-start;gap:14px;transition:var(--transition)" onmouseover="this.style.borderColor='var(--border-light)'" onmouseout="this.style.borderColor='var(--border)'">
+                <div style="min-width:44px;text-align:center;flex-shrink:0">
+                    <div style="font-size:13px;font-weight:700;color:${paper.y >= '2024' ? 'var(--accent)' : 'var(--text-secondary)'}">${paper.y || '?'}</div>
+                </div>
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;font-weight:500;color:var(--white);line-height:1.5;margin-bottom:4px">${paper.t}</div>
+                    ${paper.j ? `<div style="font-size:11px;color:var(--text-muted);font-style:italic">${paper.j}</div>` : ''}
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
+                    ${hasPdf ? `<a href="${paper.pdf}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--accent-glow);color:var(--accent);border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;border:1px solid rgba(91,138,245,0.2);transition:var(--transition)" onmouseover="this.style.background='rgba(91,138,245,0.25)'" onmouseout="this.style.background='var(--accent-glow)'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF</a>` : `<span style="font-size:11px;color:var(--text-muted);padding:6px 12px">kein PDF</span>`}
+                </div>
+            </div>`;
+        }
+
+        html += '</div>';
+        el.innerHTML = html;
     }
     </script>
     <!-- ═══ SESSION HISTORY DRAWER ═══ -->
