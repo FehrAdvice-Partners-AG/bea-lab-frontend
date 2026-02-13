@@ -656,6 +656,10 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M12 11v6"/><path d="M9 14l3-3 3 3"/></svg>
                         Upload Priority
                     </a>
+                    <a class="nav-dropdown-item" data-section="paperfinder" onclick="navDropClick('paperfinder',this)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+                        Paper Finder
+                    </a>
                 </div>
             </div>
             <div class="nav-dropdown" id="navDropBusiness" style="display:none">
@@ -863,6 +867,36 @@
                     <strong style="color:rgba(255,255,255,0.5)">Priorisierung:</strong> Priority = IL-Gewicht (I5=500, I4=400, I3=300, I2=150, I1=50) + CL-Boost (L2=80, L1=20) + DOI-Boost (+15) + Case-Links (+5/Case, max 100) + Prior-Score (×50)
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- ═══════ PAPER FINDER SECTION ═══════ -->
+    <section class="section" id="paperfinder-section">
+        <div class="container">
+            <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2>🔍 Paper Finder</h2>
+                    <p>Verifizierte PDF-Quellen für Behavioral Economics Forscher. Google Scholar → Homepage → PDFs.</p>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <div id="pfStatsBar" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+                    <button onclick="loadPaperFinder()" style="padding:8px 16px;background:rgba(42,127,142,0.12);border:1px solid rgba(42,127,142,0.3);border-radius:10px;color:var(--accent);font-size:12px;cursor:pointer">🔄 Aktualisieren</button>
+                </div>
+            </div>
+            <!-- Algorithm info -->
+            <div id="pfAlgoInfo" style="margin-bottom:16px;padding:12px 16px;background:rgba(42,127,142,0.05);border:1px solid rgba(42,127,142,0.15);border-radius:10px;display:none">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <span style="font-size:14px">🧠</span>
+                    <span style="font-size:12px;font-weight:600;color:var(--accent)" id="pfAlgoName">Discovery Algorithm</span>
+                </div>
+                <div id="pfAlgoSteps" style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px"></div>
+            </div>
+            <!-- Researcher cards -->
+            <div id="pfResearcherGrid" style="min-height:200px">
+                <div style="text-align:center;padding:60px 20px;color:rgba(255,255,255,0.3)">Lade Paper Finder...</div>
+            </div>
+            <!-- Detail panel (shown when clicking a researcher) -->
+            <div id="pfDetailPanel" style="display:none;margin-top:16px;padding:20px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px"></div>
         </div>
     </section>
 
@@ -3342,6 +3376,7 @@
             document.getElementById('hero-section').style.display = (name==='upload') ? '' : 'none';
             if(name==='documents') loadDocuments();
             if(name==='uploadpriority') loadUploadPriority();
+            if(name==='paperfinder') loadPaperFinder();
             if(name==='admin') loadAdminData();
             if(name==='context') caInit();
             if(name==='leads') crmLoad();
@@ -9784,6 +9819,196 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             try{const r=await fetch(`${API}/documents`,{headers:H()});if(r.status===401)return;const d=await r.json();
                 document.getElementById('statDocs').textContent=d.length;document.getElementById('statKB').textContent=d.filter(x=>x.database_target==='knowledge_base').length;document.getElementById('statAxioms').textContent=d.filter(x=>x.database_target==='bcm_axioms').length;
             }catch(e){document.getElementById('statDocs').textContent='–';}
+        }
+
+        // ═══ PAPER FINDER ═══
+        let _pfData = null;
+
+        async function loadPaperFinder() {
+            const grid = document.getElementById('pfResearcherGrid');
+            if (!grid) return;
+            if (_pfData) { renderPaperFinder(); return; }
+            grid.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3)"><div class="loading-spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 10px"></div>Lade Paper Finder Sources...</div>';
+            try {
+                const r = await fetch(`${API}/papers/sources`, {headers: H()});
+                if (!r.ok) throw new Error('Fehler ' + r.status);
+                _pfData = await r.json();
+                renderPaperFinder();
+            } catch(e) {
+                grid.innerHTML = `<div style="text-align:center;padding:40px;color:rgba(248,113,113,0.6)">Fehler: ${e.message}</div>`;
+            }
+        }
+
+        function renderPaperFinder() {
+            if (!_pfData) return;
+            const grid = document.getElementById('pfResearcherGrid');
+            const stats = document.getElementById('pfStatsBar');
+            const algo = document.getElementById('pfAlgoInfo');
+            const researchers = _pfData.researchers || {};
+            const s = _pfData.stats || {};
+
+            // Stats bar
+            if (stats) {
+                const complete = Object.values(researchers).filter(r => (r.status||'').includes('COMPLETE')).length;
+                stats.innerHTML = `
+                    <span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(52,211,153,0.1);color:rgba(52,211,153,0.7);border:1px solid rgba(52,211,153,0.15)">${s.total_verified_pdfs || 0} PDFs</span>
+                    <span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(59,130,246,0.1);color:rgba(59,130,246,0.7);border:1px solid rgba(59,130,246,0.15)">${s.researchers || 0} Forscher</span>
+                    <span style="padding:3px 8px;border-radius:4px;font-size:10px;background:rgba(139,92,246,0.1);color:rgba(139,92,246,0.7);border:1px solid rgba(139,92,246,0.15)">${complete} komplett</span>`;
+            }
+
+            // Algorithm info
+            if (algo && _pfData.algorithm) {
+                algo.style.display = 'block';
+                const a = _pfData.algorithm;
+                document.getElementById('pfAlgoName').textContent = `Discovery Algorithm v${a.version} — ${a.name}`;
+                const stepsEl = document.getElementById('pfAlgoSteps');
+                if (a.pipeline && stepsEl) {
+                    stepsEl.innerHTML = a.pipeline.map((step, i) => 
+                        `<span style="padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.5)">${i+1}. ${step.name}</span>`
+                    ).join('<span style="color:rgba(255,255,255,0.15)">→</span>');
+                }
+            }
+
+            // Sort researchers: complete first, then by PDF count
+            const sorted = Object.entries(researchers).sort((a,b) => {
+                const aComplete = (a[1].status||'').includes('COMPLETE') ? 1 : 0;
+                const bComplete = (b[1].status||'').includes('COMPLETE') ? 1 : 0;
+                if (aComplete !== bComplete) return bComplete - aComplete;
+                return (b[1].count||0) - (a[1].count||0);
+            });
+
+            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
+            sorted.forEach(([key, r]) => {
+                const isComplete = (r.status||'').includes('COMPLETE');
+                const borderColor = isComplete ? 'rgba(52,211,153,0.25)' : 'rgba(255,255,255,0.06)';
+                const bgColor = isComplete ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)';
+                const name = key.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+                const pdfCount = r.count || 0;
+                const barWidth = Math.min(100, (pdfCount / 120) * 100);
+                const sources = r.primary_sources ? Object.keys(r.primary_sources) : [];
+
+                html += `<div onclick="pfShowDetail('${key}')" style="padding:16px;background:${bgColor};border:1px solid ${borderColor};border-radius:12px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.borderColor='var(--accent)';this.style.background='rgba(42,127,142,0.06)'" onmouseleave="this.style.borderColor='${borderColor}';this.style.background='${bgColor}'">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <div style="font-size:13px;font-weight:600;color:${isComplete ? 'rgba(52,211,153,0.9)' : 'rgba(255,255,255,0.8)'}">${isComplete ? '✅ ' : ''}${name}</div>
+                        <span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:rgba(${pdfCount > 50 ? '52,211,153' : pdfCount > 10 ? '59,130,246' : '255,255,255'},0.1);color:rgba(${pdfCount > 50 ? '52,211,153' : pdfCount > 10 ? '59,130,246' : '255,255,255'},0.7)">${pdfCount}</span>
+                    </div>
+                    <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;margin-bottom:8px;overflow:hidden">
+                        <div style="height:100%;width:${barWidth}%;background:${isComplete ? 'rgba(52,211,153,0.5)' : 'rgba(59,130,246,0.4)'};border-radius:2px;transition:width 0.3s"></div>
+                    </div>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                        ${sources.slice(0,3).map(s => `<span style="padding:1px 6px;border-radius:3px;font-size:9px;background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.35)">${s}</span>`).join('')}
+                        ${sources.length > 3 ? `<span style="font-size:9px;color:rgba(255,255,255,0.2)">+${sources.length-3}</span>` : ''}
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            grid.innerHTML = html;
+        }
+
+        async function pfShowDetail(key) {
+            const panel = document.getElementById('pfDetailPanel');
+            if (!panel || !_pfData) return;
+            const r = _pfData.researchers[key];
+            if (!r) return;
+            
+            panel.style.display = 'block';
+            const name = key.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+            const isComplete = (r.status||'').includes('COMPLETE');
+            const sources = r.primary_sources || {};
+            const keyPapers = r.key_papers_for_ebf || [];
+            const pdfs = r.verified_pdfs || [];
+
+            let html = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                    <div>
+                        <div style="font-size:16px;font-weight:700;color:white">${isComplete ? '✅ ' : '🔍 '}${name}</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px">${r.count || 0} verifizierte PDFs — ${r.status || 'In Arbeit'}</div>
+                    </div>
+                    <button onclick="document.getElementById('pfDetailPanel').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:18px">✕</button>
+                </div>`;
+
+            // Primary sources
+            if (Object.keys(sources).length > 0) {
+                html += `<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Primärquellen</div>`;
+                Object.entries(sources).forEach(([sKey, sVal]) => {
+                    const url = typeof sVal === 'string' ? sVal : (sVal.journal_articles || sVal.publications || sVal.url || sVal.base_url || '');
+                    const desc = typeof sVal === 'object' ? (sVal.description || sVal.type || '') : '';
+                    if (url) {
+                        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03)">
+                            <span style="font-size:10px;color:rgba(255,255,255,0.35);min-width:80px">${sKey}</span>
+                            <a href="${url}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${url}</a>
+                        </div>`;
+                    }
+                });
+                html += '</div>';
+            }
+
+            // Key papers for EBF
+            if (keyPapers.length > 0) {
+                html += `<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Schlüssel-Papers für BCM/EBF</div>`;
+                keyPapers.forEach(p => {
+                    const stars = (p.match(/★/g) || []).length;
+                    const starColor = stars >= 3 ? '139,92,246' : stars >= 2 ? '59,130,246' : '255,255,255';
+                    html += `<div style="padding:4px 8px;margin-bottom:3px;font-size:11px;color:rgba(${starColor},0.7);background:rgba(${starColor},0.04);border-radius:4px">${p}</div>`;
+                });
+                html += '</div>';
+            }
+
+            // Verified PDFs (show first 15)
+            if (pdfs.length > 0) {
+                html += `<div><div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Verifizierte PDFs (${pdfs.length})</div>`;
+                const showPdfs = pdfs.slice(0, 15);
+                showPdfs.forEach(p => {
+                    const title = p.t || p.title || '';
+                    const url = p.u || p.url || '';
+                    const doi = p.doi || '';
+                    html += `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.02)">
+                        <div style="flex:1;font-size:11px;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${title}">${title}</div>
+                        <div style="display:flex;gap:4px">
+                            ${url ? `<a href="${url}" target="_blank" style="padding:2px 8px;border-radius:4px;font-size:9px;background:rgba(52,211,153,0.1);color:rgba(52,211,153,0.7);text-decoration:none;white-space:nowrap">📄 PDF</a>` : ''}
+                            ${doi ? `<a href="https://doi.org/${doi}" target="_blank" style="padding:2px 8px;border-radius:4px;font-size:9px;background:rgba(251,191,36,0.1);color:rgba(251,191,36,0.7);text-decoration:none;white-space:nowrap">🔗 DOI</a>` : ''}
+                            ${url ? `<button onclick="pfFetchPdf('${url.replace(/'/g,"\\'")}','${title.replace(/'/g,"\\'").slice(0,80)}','${name}')" style="padding:2px 8px;border-radius:4px;font-size:9px;background:rgba(42,127,142,0.12);border:1px solid rgba(42,127,142,0.25);color:var(--accent);cursor:pointer;white-space:nowrap">📥 Upload</button>` : ''}
+                        </div>
+                    </div>`;
+                });
+                if (pdfs.length > 15) {
+                    html += `<div style="padding:8px;text-align:center;font-size:11px;color:rgba(255,255,255,0.25)">... und ${pdfs.length - 15} weitere PDFs</div>`;
+                }
+                html += '</div>';
+            }
+
+            panel.innerHTML = html;
+            setTimeout(() => panel.scrollIntoView({behavior:'smooth', block:'start'}), 100);
+        }
+
+        async function pfFetchPdf(url, title, author) {
+            const btn = event.target;
+            const origText = btn.textContent;
+            btn.textContent = '⏳';
+            btn.disabled = true;
+            try {
+                const r = await fetch(`${API}/papers/fetch-and-upload`, {
+                    method: 'POST', headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify({url, title, author, year: ''})
+                });
+                const data = await r.json();
+                if (data.ok) {
+                    btn.textContent = '✅';
+                    btn.style.background = 'rgba(52,211,153,0.2)';
+                    showToast(`✅ ${data.filename} → DB + GitHub`, 'success');
+                } else if (data.duplicate) {
+                    btn.textContent = '⚠️ Dup';
+                    btn.style.background = 'rgba(251,191,36,0.15)';
+                    showToast(`⚠️ Bereits vorhanden: ${data.title || 'Dokument'}`, 'info');
+                } else {
+                    throw new Error(data.detail || data.message || 'Fehler');
+                }
+            } catch(e) {
+                btn.textContent = '❌';
+                btn.disabled = false;
+                showToast(`❌ ${e.message}`, 'error');
+                setTimeout(() => { btn.textContent = origText; }, 2000);
+            }
         }
 
         function showToast(msg,type='info'){const c=document.getElementById('toastContainer'),t=document.createElement('div');t.className=`toast ${type}`;t.innerHTML=`<span>${{success:'✓',error:'✗',info:'ℹ'}[type]||''}</span> ${msg}`;c.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(20px)';t.style.transition='0.3s';setTimeout(()=>t.remove(),300);},4000);}
