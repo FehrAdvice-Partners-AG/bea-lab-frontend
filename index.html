@@ -790,6 +790,7 @@
                 <div id="mainChatAttachments" style="display:none;padding:0 0 8px;display:flex;flex-wrap:wrap;gap:6px"></div>
                 <div class="chat-input-wrap">
                     <button id="prjChatToggle" onclick="toggleBxCmd()" style="padding:8px 10px;background:rgba(42,127,142,0.15);border:1px solid rgba(42,127,142,0.4);border-radius:8px;color:var(--accent-light);font-size:14px;cursor:pointer;flex-shrink:0;transition:all 0.15s;line-height:1;align-self:flex-end" title="BEATRIX Command Mode aktiv (klicken zum Beenden)">💡</button>
+                    <button id="analysisModeBtn" onclick="toggleAnalysisMode()" style="padding:8px 10px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:8px;color:#34d399;font-size:13px;cursor:pointer;flex-shrink:0;transition:all 0.15s;line-height:1;align-self:flex-end;font-weight:600" title="Analyse-Modus: Fast (System 1) – klicken für Deep (System 2)">⚡</button>
                     <input type="file" id="mainChatFileInput" style="display:none" accept=".pdf,.txt,.md,.csv,.json,.docx,.ics,.png,.jpg,.jpeg,.gif,.webp" onchange="mainChatFileSelected(this)" multiple>
                     <button onclick="document.getElementById('mainChatFileInput').click()" style="padding:8px 10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:rgba(255,255,255,0.4);font-size:14px;cursor:pointer;flex-shrink:0;transition:all 0.15s;line-height:1;align-self:flex-end" title="Datei anhängen">📎</button>
                     <div style="flex:1;display:flex;flex-direction:column;min-height:0">
@@ -4727,31 +4728,33 @@
         }
 
         // ── Transform Entry Points ───────────────────────────────────────
-        function transformAnswer(msgId) {
+        function transformAnswer(msgId, mode) {
             const msgEl = document.getElementById(msgId);
             if (!msgEl) return;
             const bodyEl = msgEl.querySelector('.chat-msg-body');
-            const originalText = bodyEl.innerText.replace(/📋 Kopieren|🔥 Challenge|🎙️ Transform/g,'').trim();
+            const originalText = bodyEl.innerText.replace(/📋 Kopieren|🔥 Challenge|🎙️ NotebookLM|🔬 Deep/g,'').trim();
             if (!originalText || originalText.length < 30) { showToast('Zu wenig Text für Transform', 'info'); return; }
 
-            showTransformChoice({
+            const opts = {
                 text: originalText,
                 title: 'BEATRIX: ' + originalText.slice(0, 60).replace(/\n/g,' ') + '...',
                 contentType: 'chat'
-            });
+            };
+            if (mode === 'deep') { runDeepTransform(opts); } else { runFastTransform(opts); }
         }
 
-        function transformDocument() {
+        function transformDocument(mode) {
             if (!currentDocId) return;
             const titleEl = document.getElementById('docDetailTitle');
             const title = titleEl ? titleEl.textContent : 'Paper';
 
-            showTransformChoice({
+            const opts = {
                 paperId: currentDocId,
                 title: title,
                 contentType: 'paper',
-                onDone: () => { const btn = document.getElementById('docTransformBtn'); if (btn) { btn.disabled = false; btn.innerHTML = '🎙️ Transform'; } }
-            });
+                onDone: () => { const btn = document.getElementById('docTransformBtn'); if (btn) { btn.disabled = false; btn.innerHTML = '🎙️ NotebookLM'; } }
+            };
+            if (mode === 'deep') { runDeepTransform(opts); } else { runFastTransform(opts); }
         }
 
         async function classifyDocument() {
@@ -9038,7 +9041,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         const streamResp = await fetch(`${API}/chat/project/${prjCurrentSlug}/stream`, {
                             method: 'POST',
                             headers: {...H(), 'Content-Type': 'application/json'},
-                            body: JSON.stringify({ question: msgText, session_id: chatSessionId, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type})) })
+                            body: JSON.stringify({ question: msgText, session_id: chatSessionId, analysis_mode: analysisMode, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type})) })
                         });
 
                         if (!streamResp.ok) throw new Error(`Stream error: ${streamResp.status}`);
@@ -9103,7 +9106,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                             const kr = await fetch(`${API}/chat/project/${prjCurrentSlug}`, {
                                 method: 'POST',
                                 headers: {...H(), 'Content-Type': 'application/json'},
-                                body: JSON.stringify({ question: msgText, session_id: chatSessionId, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type})) })
+                                body: JSON.stringify({ question: msgText, session_id: chatSessionId, analysis_mode: analysisMode, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type})) })
                             });
                             const kd = await kr.json();
                             let fallbackHtml = mbRenderMd(kd.answer || '');
@@ -11357,6 +11360,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         body: JSON.stringify({
                             question: msgText,
                             session_id: chatSessionId,
+                            analysis_mode: analysisMode,
                             attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))
                         })
                     });
@@ -11794,6 +11798,26 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
 
         // ── BEATRIX COMMAND MODE (Universal Intent) ──
         let bxCmdMode = true;  // Always on by default – intent router handles everything
+        let analysisMode = 'fast'; // 'fast' (System 1) or 'deep' (System 2) – toggleable via UI
+
+        function toggleAnalysisMode() {
+            const btn = document.getElementById('analysisModeBtn');
+            if (analysisMode === 'fast') {
+                analysisMode = 'deep';
+                btn.textContent = '🔬';
+                btn.style.background = 'rgba(168,85,247,0.15)';
+                btn.style.borderColor = 'rgba(168,85,247,0.4)';
+                btn.style.color = '#a855f7';
+                btn.title = 'Analyse-Modus: Deep (System 2) – klicken für Fast (System 1)';
+            } else {
+                analysisMode = 'fast';
+                btn.textContent = '⚡';
+                btn.style.background = 'rgba(52,211,153,0.1)';
+                btn.style.borderColor = 'rgba(52,211,153,0.3)';
+                btn.style.color = '#34d399';
+                btn.title = 'Analyse-Modus: Fast (System 1) – klicken für Deep (System 2)';
+            }
+        }
         let bxCmdDraft = {};
         let bxCmdHistory = [];
         let bxCmdIntent = '';  // current active intent
@@ -12054,7 +12078,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                     signal: abortCtrl.signal,
                     body: JSON.stringify({
                         message, history: bxCmdHistory, current_draft: bxCmdDraft,
-                        intent: bxCmdIntent, session_id: chatSessionId,
+                        intent: bxCmdIntent, session_id: chatSessionId, analysis_mode: analysisMode,
                         attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))
                     })
                 });
