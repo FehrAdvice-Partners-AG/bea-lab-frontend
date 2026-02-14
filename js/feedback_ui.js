@@ -1,6 +1,6 @@
 /**
- * BEATRIX Feedback Governance System — Frontend v1.1
- * Fixed: Clickable cards with detail modal
+ * BEATRIX Feedback Governance System — Frontend v1.2
+ * Added: AI Solution Generator
  */
 
 const FEEDBACK_STATUS = {
@@ -32,7 +32,6 @@ class FeedbackWidget {
     }
 
     createWidget() {
-        // Floating button
         const fab = document.createElement('button');
         fab.id = 'feedbackFab';
         fab.style.cssText = `position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; 
@@ -46,7 +45,6 @@ class FeedbackWidget {
         fab.onclick = () => this.openModal();
         document.body.appendChild(fab);
 
-        // Create modal
         const modal = document.createElement('div');
         modal.id = 'feedbackModal';
         modal.style.cssText = `position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
@@ -74,7 +72,6 @@ class FeedbackWidget {
         modal.onclick = (e) => { if (e.target === modal) this.closeModal(); };
         document.body.appendChild(modal);
 
-        // Keyboard shortcut
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.shiftKey && e.key === 'F') {
                 e.preventDefault();
@@ -125,6 +122,7 @@ class FeedbackAdminDashboard {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
         this.feedbacks = [];
+        this.currentSolution = null;
         this.init();
     }
 
@@ -161,12 +159,11 @@ class FeedbackAdminDashboard {
                 <div id="fbList"></div>
             </div>
             <!-- Detail Modal -->
-            <div id="fbDetailModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 10000;">
-                <div id="fbDetailContent" style="background: #1a1f2e; border-radius: 16px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; padding: 24px; border: 1px solid rgba(255,255,255,0.1);"></div>
+            <div id="fbDetailModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 10000; padding: 20px;">
+                <div id="fbDetailContent" style="background: #1a1f2e; border-radius: 16px; width: 100%; max-width: 700px; max-height: 90vh; overflow-y: auto; padding: 24px; border: 1px solid rgba(255,255,255,0.1);"></div>
             </div>
         `;
 
-        // Close modal on background click
         document.getElementById('fbDetailModal').onclick = (e) => {
             if (e.target.id === 'fbDetailModal') this.closeDetail();
         };
@@ -221,6 +218,7 @@ class FeedbackAdminDashboard {
             const status = FEEDBACK_STATUS[f.status] || FEEDBACK_STATUS.neu;
             const tier = FEEDBACK_TIERS[f.tier] || FEEDBACK_TIERS[3];
             const date = new Date(f.created_at).toLocaleDateString('de-CH');
+            const hasSolution = f.ai_solution_code ? '🤖' : '';
             return `
                 <div onclick="feedbackAdmin.openDetail(${idx})" 
                     style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 16px; margin-bottom: 12px; 
@@ -231,6 +229,7 @@ class FeedbackAdminDashboard {
                         <div>
                             <span style="background: ${tier.color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Tier ${f.tier || '?'}</span>
                             <span style="background: ${status.color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 4px;">${status.icon} ${status.label}</span>
+                            ${hasSolution ? '<span style="margin-left: 4px;" title="Hat Lösungsvorschlag">🤖</span>' : ''}
                         </div>
                         <span style="color: #6B7280; font-size: 12px;">${date}</span>
                     </div>
@@ -244,6 +243,8 @@ class FeedbackAdminDashboard {
     openDetail(idx) {
         const f = this.feedbacks[idx];
         if (!f) return;
+        this.currentFeedback = f;
+        this.currentSolution = null;
 
         const status = FEEDBACK_STATUS[f.status] || FEEDBACK_STATUS.neu;
         const tier = FEEDBACK_TIERS[f.tier] || FEEDBACK_TIERS[3];
@@ -284,6 +285,20 @@ class FeedbackAdminDashboard {
                 </div>
             </div>
 
+            <!-- AI Solution Section -->
+            <div style="background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.1)); border: 1px solid rgba(139,92,246,0.3); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="color: #C4B5FD; font-weight: 600;">🤖 BEATRIX Lösungsvorschlag</div>
+                    <button onclick="feedbackAdmin.generateSolution('${f.id}')" id="btnGenSolution"
+                        style="padding: 8px 16px; border-radius: 6px; border: none; background: linear-gradient(135deg, #8B5CF6, #6366F1); color: white; cursor: pointer; font-size: 13px;">
+                        ✨ Lösung generieren
+                    </button>
+                </div>
+                <div id="solutionContent" style="color: #E9D5FF;">
+                    ${f.ai_solution_code ? 'Lade bestehende Lösung...' : 'Klicke auf "Lösung generieren" um einen Vorschlag von BEATRIX zu erhalten.'}
+                </div>
+            </div>
+
             <div style="color: #9CA3AF; font-size: 12px; margin-bottom: 8px;">STATUS ÄNDERN</div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
                 <button onclick="feedbackAdmin.setStatus('${f.id}', 'in_arbeit')" style="padding: 8px 16px; border-radius: 6px; border: none; background: #8B5CF6; color: white; cursor: pointer;">🔧 In Arbeit</button>
@@ -292,12 +307,114 @@ class FeedbackAdminDashboard {
             </div>
 
             <div style="display: flex; gap: 8px;">
-                <button onclick="feedbackAdmin.runTriage('${f.id}')" style="padding: 8px 16px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: white; cursor: pointer;">🤖 AI-Triage</button>
                 <button onclick="feedbackAdmin.createGitHubIssue('${f.id}')" style="padding: 8px 16px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: white; cursor: pointer;">🔗 GitHub Issue</button>
             </div>
         `;
 
         document.getElementById('fbDetailModal').style.display = 'flex';
+
+        // Load existing solution if available
+        if (f.ai_solution_code) {
+            this.loadExistingSolution(f.id);
+        }
+    }
+
+    async loadExistingSolution(id) {
+        try {
+            const token = sessionStorage.getItem('bea_token');
+            const resp = await fetch(`${API_BASE}/api/admin/feedback/${id}/solution`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.solution) {
+                    this.displaySolution(data.solution);
+                }
+            }
+        } catch (e) {
+            console.error('Load solution failed:', e);
+        }
+    }
+
+    async generateSolution(id) {
+        const btn = document.getElementById('btnGenSolution');
+        const content = document.getElementById('solutionContent');
+        
+        btn.disabled = true;
+        btn.textContent = '⏳ Generiere...';
+        content.innerHTML = '<div style="text-align: center; padding: 20px;"><div style="color: #C4B5FD;">🤖 BEATRIX analysiert das Problem...</div><div style="color: #6B7280; font-size: 12px; margin-top: 8px;">Das kann bis zu 30 Sekunden dauern.</div></div>';
+
+        try {
+            const token = sessionStorage.getItem('bea_token');
+            const resp = await fetch(`${API_BASE}/api/admin/feedback/${id}/solution`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (resp.ok) {
+                const data = await resp.json();
+                this.displaySolution(data.solution);
+                await this.loadFeedbacks(); // Refresh list
+            } else {
+                const err = await resp.json();
+                content.innerHTML = `<div style="color: #EF4444;">Fehler: ${err.detail || 'Unbekannt'}</div>`;
+            }
+        } catch (e) {
+            content.innerHTML = `<div style="color: #EF4444;">Netzwerkfehler: ${e.message}</div>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '✨ Lösung generieren';
+        }
+    }
+
+    displaySolution(solution) {
+        const content = document.getElementById('solutionContent');
+        if (!solution) {
+            content.innerHTML = '<div style="color: #6B7280;">Keine Lösung verfügbar.</div>';
+            return;
+        }
+
+        const s = solution;
+        content.innerHTML = `
+            <div style="margin-bottom: 16px;">
+                <div style="color: #A78BFA; font-size: 12px; margin-bottom: 4px;">PROBLEMANALYSE</div>
+                <div style="color: white;">${s.problem_analysis || '-'}</div>
+            </div>
+            
+            ${s.root_cause ? `
+            <div style="margin-bottom: 16px;">
+                <div style="color: #A78BFA; font-size: 12px; margin-bottom: 4px;">URSACHE</div>
+                <div style="color: #E9D5FF;">${s.root_cause}</div>
+            </div>
+            ` : ''}
+
+            <div style="margin-bottom: 16px;">
+                <div style="color: #A78BFA; font-size: 12px; margin-bottom: 4px;">LÖSUNG</div>
+                <div style="color: white; line-height: 1.6;">${s.solution_description || '-'}</div>
+            </div>
+
+            ${s.implementation_steps && s.implementation_steps.length ? `
+            <div style="margin-bottom: 16px;">
+                <div style="color: #A78BFA; font-size: 12px; margin-bottom: 8px;">SCHRITTE</div>
+                <ol style="margin: 0; padding-left: 20px; color: #E9D5FF;">
+                    ${s.implementation_steps.map(step => `<li style="margin-bottom: 4px;">${step}</li>`).join('')}
+                </ol>
+            </div>
+            ` : ''}
+
+            ${s.code_snippet && s.code_snippet !== 'null' ? `
+            <div style="margin-bottom: 16px;">
+                <div style="color: #A78BFA; font-size: 12px; margin-bottom: 8px;">CODE</div>
+                <pre style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; overflow-x: auto; margin: 0;"><code style="color: #10B981; font-size: 12px; font-family: monospace;">${s.code_snippet}</code></pre>
+            </div>
+            ` : ''}
+
+            <div style="display: flex; gap: 16px; flex-wrap: wrap; color: #6B7280; font-size: 12px;">
+                ${s.affected_files ? `<span>📁 ${s.affected_files.join(', ')}</span>` : ''}
+                ${s.estimated_effort ? `<span>⏱ ${s.estimated_effort}</span>` : ''}
+                ${s.risk_level ? `<span>⚠️ Risiko: ${s.risk_level}</span>` : ''}
+            </div>
+        `;
     }
 
     closeDetail() {
@@ -315,28 +432,6 @@ class FeedbackAdminDashboard {
 
             if (resp.ok) {
                 this.closeDetail();
-                await this.loadFeedbacks();
-                alert('✅ Status geändert');
-            } else {
-                const err = await resp.json();
-                alert('Fehler: ' + (err.detail || 'Unbekannt'));
-            }
-        } catch (e) {
-            alert('Fehler: ' + e.message);
-        }
-    }
-
-    async runTriage(id) {
-        try {
-            const token = sessionStorage.getItem('bea_token');
-            const resp = await fetch(`${API_BASE}/api/admin/feedback/${id}/triage`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (resp.ok) {
-                const data = await resp.json();
-                alert('🤖 AI-Triage: ' + JSON.stringify(data.triage, null, 2));
                 await this.loadFeedbacks();
             } else {
                 const err = await resp.json();
@@ -387,9 +482,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.initFeedbackAdmin = function(containerId) {
-    console.log('initFeedbackAdmin called:', containerId);
+    console.log('initFeedbackAdmin v1.2:', containerId);
     feedbackAdmin = new FeedbackAdminDashboard(containerId);
     window.feedbackAdmin = feedbackAdmin;
 };
 
-console.log('✅ BEATRIX Feedback System v1.1 loaded');
+console.log('✅ BEATRIX Feedback System v1.2 loaded (with AI Solutions)');
