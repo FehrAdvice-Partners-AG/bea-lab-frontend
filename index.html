@@ -2918,22 +2918,15 @@
             <div class="admin-section-title" style="margin-top:32px">📋 Feedback Management</div>
             <div id="feedbackAdminContainer"></div>
             <script>
-                // Initialize feedback admin dashboard when admin section is shown
-                if (typeof initFeedbackAdmin === 'function') {
-                    // Wait for DOM and then init when admin tab is clicked
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const adminLink = document.getElementById('navAdmin');
-                        if (adminLink) {
-                            adminLink.addEventListener('click', function() {
-                                setTimeout(function() {
-                                    if (document.getElementById('feedbackAdminContainer').innerHTML === '') {
-                                        initFeedbackAdmin('feedbackAdminContainer');
-                                    }
-                                }, 100);
-                            });
+                // Initialize feedback admin dashboard - direct init on page load
+                window.addEventListener('load', function() {
+                    setTimeout(function() {
+                        if (typeof initFeedbackAdmin === 'function' && document.getElementById('feedbackAdminContainer')) {
+                            initFeedbackAdmin('feedbackAdminContainer');
+                            console.log('✅ Feedback Admin Dashboard initialized');
                         }
-                    });
-                }
+                    }, 500);
+                });
             </script>
 
         </div>
