@@ -4488,130 +4488,270 @@
             el.innerHTML = html;
         }
 
-        async function transformAnswer(msgId) {
+        // ── Transform: Choice Modal (Fast vs Deep) ──────────────────────
+        function showTransformChoice(opts) {
+            // opts: { text, title, contentType, paperId, onDone, sourceBtn }
+            const modal = document.createElement('div');
+            modal.id = 'transformChoiceModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
+            modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
+            modal.innerHTML = `
+                <div style="max-width:480px;width:100%;background:var(--navy-card);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                    <div style="padding:24px 24px 16px">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+                            <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,rgba(168,85,247,0.2),rgba(236,72,153,0.2));display:flex;align-items:center;justify-content:center;font-size:22px">🎙️</div>
+                            <div>
+                                <div style="font-size:16px;font-weight:700;color:var(--text)">Content Transform</div>
+                                <div style="font-size:11px;color:var(--text-muted)">${(opts.title||'').slice(0,60)}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="padding:0 24px 24px;display:flex;gap:12px">
+                        <div id="tfChoiceFast" style="flex:1;padding:20px 16px;border-radius:12px;border:1px solid rgba(52,211,153,0.2);background:rgba(52,211,153,0.04);cursor:pointer;transition:all 0.2s;text-align:center"
+                            onmouseenter="this.style.background='rgba(52,211,153,0.1)';this.style.borderColor='rgba(52,211,153,0.4)'"
+                            onmouseleave="this.style.background='rgba(52,211,153,0.04)';this.style.borderColor='rgba(52,211,153,0.2)'">
+                            <div style="font-size:28px;margin-bottom:8px">⚡</div>
+                            <div style="font-size:14px;font-weight:700;color:#34d399;margin-bottom:4px">Fast</div>
+                            <div style="font-size:10px;color:var(--text-muted);line-height:1.5">System 1<br>Direkt → Notebook + Podcast<br>~30 Sekunden</div>
+                        </div>
+                        <div id="tfChoiceDeep" style="flex:1;padding:20px 16px;border-radius:12px;border:1px solid rgba(168,85,247,0.2);background:rgba(168,85,247,0.04);cursor:pointer;transition:all 0.2s;text-align:center"
+                            onmouseenter="this.style.background='rgba(168,85,247,0.1)';this.style.borderColor='rgba(168,85,247,0.4)'"
+                            onmouseleave="this.style.background='rgba(168,85,247,0.04)';this.style.borderColor='rgba(168,85,247,0.2)'">
+                            <div style="font-size:28px;margin-bottom:8px">🔬</div>
+                            <div style="font-size:14px;font-weight:700;color:#a855f7;margin-bottom:4px">Deep</div>
+                            <div style="font-size:10px;color:var(--text-muted);line-height:1.5">System 2<br>5-Modell-Analyse → Notebook<br>~2-4 Minuten</div>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            document.getElementById('tfChoiceFast').onclick = () => { modal.remove(); runFastTransform(opts); };
+            document.getElementById('tfChoiceDeep').onclick = () => { modal.remove(); runDeepTransform(opts); };
+        }
+
+        async function runFastTransform(opts) {
+            const progressId = showTransformProgress('fast', opts.title);
+            updateTransformStep(progressId, 0, 'running');
+            try {
+                const body = opts.paperId
+                    ? { paper_id: opts.paperId, podcast: true, content_type: opts.contentType || 'paper' }
+                    : { title: opts.title, text: opts.text?.slice(0,100000), podcast: true, content_type: opts.contentType || 'chat' };
+                const r = await fetch(`${API}/transform`, {
+                    method: 'POST', headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                });
+                if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || 'Transform failed');
+                const d = await r.json();
+                updateTransformStep(progressId, 0, 'done');
+                updateTransformStep(progressId, 1, d.podcast?.status === 'generating' ? 'done' : 'warn');
+                showTransformResult(progressId, d);
+                if (opts.onDone) opts.onDone(d);
+            } catch(e) {
+                updateTransformStep(progressId, 0, 'error', e.message);
+                showToast('Transform Fehler: ' + e.message, 'error');
+            }
+        }
+
+        async function runDeepTransform(opts) {
+            const progressId = showTransformProgress('deep', opts.title);
+
+            try {
+                // Step 1: APE Challenge / Review
+                updateTransformStep(progressId, 0, 'running');
+                let enrichedText = opts.text || '';
+                let challengeData = null;
+
+                if (opts.paperId) {
+                    // Paper: use APE review
+                    const r1 = await fetch(`${API}/documents/${opts.paperId}/ape-review`, {
+                        method: 'POST', headers: H()
+                    });
+                    if (r1.ok) {
+                        challengeData = await r1.json();
+                        updateTransformStep(progressId, 0, 'done', `${challengeData.models_used || 5} Modelle`);
+                    } else {
+                        updateTransformStep(progressId, 0, 'warn', 'Review übersprungen');
+                    }
+                } else {
+                    // Chat: use challenge endpoint
+                    const r1 = await fetch(`${API}/challenge`, {
+                        method: 'POST', headers: {...H(), 'Content-Type': 'application/json'},
+                        body: JSON.stringify({ text: enrichedText.slice(0, 4000) })
+                    });
+                    if (r1.ok) {
+                        challengeData = await r1.json();
+                        updateTransformStep(progressId, 0, 'done', `${challengeData.models_used || 5} Modelle`);
+                    } else {
+                        updateTransformStep(progressId, 0, 'warn', 'Challenge übersprungen');
+                    }
+                }
+
+                // Step 2: Enrich content
+                updateTransformStep(progressId, 1, 'running');
+                let deepTitle = opts.title || 'BEATRIX Deep Analysis';
+                if (challengeData) {
+                    let reviewText = '\\n\\n══ APE MULTI-MODEL ANALYSIS ══\\n';
+                    for (const [key, ch] of Object.entries(challengeData.challenges || {})) {
+                        reviewText += `\\n── ${ch.name} (${ch.model}) ──\\n${ch.challenge || ch.review || ''}\\n`;
+                    }
+                    if (challengeData.synthesis) {
+                        reviewText += `\\n── SYNTHESIS ──\\n${challengeData.synthesis}\\n`;
+                    }
+                    enrichedText = enrichedText + reviewText;
+                    deepTitle = '🔬 Deep: ' + deepTitle;
+                }
+                updateTransformStep(progressId, 1, 'done');
+
+                // Step 3: Create Notebook + Source
+                updateTransformStep(progressId, 2, 'running');
+                const transformBody = opts.paperId
+                    ? { title: deepTitle, text: enrichedText.slice(0,100000), podcast: true, content_type: 'deep_' + (opts.contentType || 'paper') }
+                    : { title: deepTitle, text: enrichedText.slice(0,100000), podcast: true, content_type: 'deep_chat' };
+                const r2 = await fetch(`${API}/transform`, {
+                    method: 'POST', headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify(transformBody)
+                });
+                if (!r2.ok) throw new Error((await r2.json().catch(()=>({}))).detail || 'Transform failed');
+                const d = await r2.json();
+                updateTransformStep(progressId, 2, 'done');
+
+                // Step 4: Podcast status
+                updateTransformStep(progressId, 3, d.podcast?.status === 'generating' ? 'done' : 'warn');
+
+                showTransformResult(progressId, d);
+                if (opts.onDone) opts.onDone(d);
+
+            } catch(e) {
+                showToast('Deep Transform Fehler: ' + e.message, 'error');
+            }
+        }
+
+        // ── Transform Progress Modal ─────────────────────────────────────
+        const TRANSFORM_STEPS = {
+            fast: [
+                { icon: '📓', label: 'Notebook + Quelle erstellen' },
+                { icon: '🎙️', label: 'Podcast generieren' }
+            ],
+            deep: [
+                { icon: '🔥', label: 'APE Multi-Model-Analyse', sub: '5 Modelle challengen unabhängig' },
+                { icon: '🧬', label: 'Content anreichern', sub: 'Original + Analyse kombinieren' },
+                { icon: '📓', label: 'Notebook + Quelle erstellen', sub: 'NotebookLM Enterprise' },
+                { icon: '🎙️', label: 'Podcast generieren', sub: 'Audio Overview' }
+            ]
+        };
+
+        function showTransformProgress(mode, title) {
+            const id = 'tfProg_' + Date.now();
+            const steps = TRANSFORM_STEPS[mode];
+            const isDeep = mode === 'deep';
+            const modal = document.createElement('div');
+            modal.id = id;
+            modal.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
+
+            const gradColor = isDeep ? 'rgba(168,85,247,0.2),rgba(236,72,153,0.2)' : 'rgba(52,211,153,0.2),rgba(96,165,250,0.2)';
+            const headerIcon = isDeep ? '🔬' : '⚡';
+            const headerLabel = isDeep ? 'Deep Transform' : 'Fast Transform';
+            const accentColor = isDeep ? '#a855f7' : '#34d399';
+
+            modal.innerHTML = `
+                <div style="max-width:480px;width:100%;background:var(--navy-card);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                    <div style="padding:24px">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+                            <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,${gradColor});display:flex;align-items:center;justify-content:center;font-size:22px">${headerIcon}</div>
+                            <div>
+                                <div style="font-size:16px;font-weight:700;color:var(--text)">${headerLabel}</div>
+                                <div style="font-size:11px;color:var(--text-muted)">${(title||'').slice(0,50)}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="padding:0 24px 20px" id="${id}_steps">
+                        ${steps.map((s,i) => `
+                            <div id="${id}_s${i}" style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;${i < steps.length-1 ? 'border-bottom:1px solid rgba(255,255,255,0.04)' : ''}">
+                                <div id="${id}_s${i}_icon" style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:all 0.3s">${s.icon}</div>
+                                <div style="flex:1;min-width:0">
+                                    <div style="font-size:13px;font-weight:600;color:var(--text-secondary)" id="${id}_s${i}_label">${s.label}</div>
+                                    ${s.sub ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${s.sub}</div>` : ''}
+                                    <div id="${id}_s${i}_detail" style="font-size:10px;color:${accentColor};margin-top:3px;display:none"></div>
+                                </div>
+                                <div id="${id}_s${i}_status" style="font-size:11px;color:var(--text-muted);flex-shrink:0;padding-top:2px">⏳</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div id="${id}_result" style="display:none;padding:0 24px 20px"></div>
+                    <div id="${id}_footer" style="display:none;padding:16px 24px;border-top:1px solid var(--border);display:none;justify-content:flex-end;gap:10px"></div>
+                </div>`;
+            document.body.appendChild(modal);
+            return id;
+        }
+
+        function updateTransformStep(progressId, stepIndex, status, detail) {
+            const iconEl = document.getElementById(`${progressId}_s${stepIndex}_icon`);
+            const statusEl = document.getElementById(`${progressId}_s${stepIndex}_status`);
+            const detailEl = document.getElementById(`${progressId}_s${stepIndex}_detail`);
+            if (!statusEl) return;
+
+            const states = {
+                running: { status: '<div class="loading-spinner" style="width:14px;height:14px;border-width:2px"></div>', bg: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)' },
+                done: { status: '<span style="color:#34d399">✓</span>', bg: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' },
+                warn: { status: '<span style="color:#fbbf24">⚠</span>', bg: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' },
+                error: { status: '<span style="color:#f87171">✗</span>', bg: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)' }
+            };
+            const s = states[status] || states.running;
+            statusEl.innerHTML = s.status;
+            if (iconEl) { iconEl.style.background = s.bg; iconEl.style.border = s.border; }
+            if (detail && detailEl) { detailEl.style.display = ''; detailEl.textContent = detail; }
+        }
+
+        function showTransformResult(progressId, d) {
+            const resultEl = document.getElementById(`${progressId}_result`);
+            const footerEl = document.getElementById(`${progressId}_footer`);
+            if (!resultEl) return;
+
+            resultEl.style.display = '';
+            resultEl.innerHTML = `
+                <div style="padding:12px;background:rgba(52,211,153,0.04);border:1px solid rgba(52,211,153,0.12);border-radius:10px">
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+                        <span style="padding:3px 8px;background:rgba(52,211,153,0.1);border-radius:6px;color:#34d399;font-size:10px">✓ Notebook</span>
+                        <span style="padding:3px 8px;background:rgba(52,211,153,0.1);border-radius:6px;color:#34d399;font-size:10px">🎙️ Podcast generiert</span>
+                        <span style="padding:3px 8px;background:rgba(96,165,250,0.08);border-radius:6px;color:#60a5fa;font-size:10px">🧠 Mind Map</span>
+                        <span style="padding:3px 8px;background:rgba(244,114,182,0.08);border-radius:6px;color:#f472b6;font-size:10px">🎬 Video</span>
+                        <span style="padding:3px 8px;background:rgba(251,191,36,0.08);border-radius:6px;color:#fbbf24;font-size:10px">📊 Reports</span>
+                    </div>
+                </div>`;
+
+            if (footerEl) {
+                footerEl.style.display = 'flex';
+                footerEl.innerHTML = `
+                    <button onclick="document.getElementById('${progressId}').remove()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer">Schliessen</button>
+                    <a href="${d.notebook_url}" target="_blank" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px">🔗 Notebook öffnen</a>`;
+            }
+        }
+
+        // ── Transform Entry Points ───────────────────────────────────────
+        function transformAnswer(msgId) {
             const msgEl = document.getElementById(msgId);
             if (!msgEl) return;
             const bodyEl = msgEl.querySelector('.chat-msg-body');
             const originalText = bodyEl.innerText.replace(/📋 Kopieren|🔥 Challenge|🎙️ Transform/g,'').trim();
             if (!originalText || originalText.length < 30) { showToast('Zu wenig Text für Transform', 'info'); return; }
 
-            const transformBtn = msgEl.querySelector('[onclick*="transformAnswer"]');
-            const origBtnHtml = transformBtn ? transformBtn.outerHTML : '';
-            if (transformBtn) { transformBtn.disabled = true; transformBtn.innerHTML = '⏳...'; }
-
-            try {
-                const r = await fetch(`${API}/transform`, {
-                    method: 'POST',
-                    headers: {...H(), 'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        title: 'BEATRIX: ' + originalText.slice(0, 60).replace(/\n/g,' ') + '...',
-                        text: originalText.slice(0, 100000),
-                        podcast: true,
-                        content_type: 'chat'
-                    })
-                });
-                if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || 'Transform failed');
-                const d = await r.json();
-                
-                const podcastOk = d.podcast?.status === 'generating';
-                const resultHtml = `<div style="margin-top:8px;padding:14px;background:rgba(168,85,247,0.04);border:1px solid rgba(168,85,247,0.12);border-radius:10px">
-                    <div style="font-size:10px;color:#a855f7;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">🎙️ CONTENT TRANSFORM – NotebookLM Enterprise</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
-                        <span style="padding:3px 8px;background:rgba(52,211,153,0.1);border-radius:6px;color:#34d399;font-size:10px">✓ Notebook</span>
-                        ${d.source?.added ? '<span style="padding:3px 8px;background:rgba(52,211,153,0.1);border-radius:6px;color:#34d399;font-size:10px">✓ Quelle</span>' : '<span style="padding:3px 8px;background:rgba(245,158,11,0.1);border-radius:6px;color:#f59e0b;font-size:10px">⚠ Quelle</span>'}
-                        ${podcastOk ? '<span style="padding:3px 8px;background:rgba(52,211,153,0.1);border-radius:6px;color:#34d399;font-size:10px">🎙️ Podcast generiert...</span>' : '<span style="padding:3px 8px;background:rgba(245,158,11,0.1);border-radius:6px;color:#f59e0b;font-size:10px">⚠ Podcast</span>'}
-                    </div>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap">
-                        <a href="${d.notebook_url}" target="_blank" style="padding:4px 12px;border-radius:6px;background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(236,72,153,0.15));border:1px solid rgba(168,85,247,0.3);color:#c084fc;font-size:11px;text-decoration:none;font-weight:600">🔗 Notebook öffnen</a>
-                        <span style="padding:4px 10px;border-radius:6px;background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.15);color:rgba(96,165,250,0.6);font-size:10px">🧠 Mind Map</span>
-                        <span style="padding:4px 10px;border-radius:6px;background:rgba(244,114,182,0.08);border:1px solid rgba(244,114,182,0.15);color:rgba(244,114,182,0.6);font-size:10px">🎬 Video</span>
-                        <span style="padding:4px 10px;border-radius:6px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.15);color:rgba(251,191,36,0.6);font-size:10px">📊 Reports</span>
-                    </div>
-                </div>`;
-                
-                if (transformBtn) transformBtn.outerHTML = resultHtml;
-                showToast('Content transformiert! Podcast wird generiert.', 'success');
-            } catch(e) {
-                showToast('Transform Fehler: ' + e.message, 'error');
-                if (transformBtn) { transformBtn.disabled = false; transformBtn.innerHTML = '🎙️ Transform'; }
-            }
+            showTransformChoice({
+                text: originalText,
+                title: 'BEATRIX: ' + originalText.slice(0, 60).replace(/\n/g,' ') + '...',
+                contentType: 'chat'
+            });
         }
 
-        async function transformDocument() {
+        function transformDocument() {
             if (!currentDocId) return;
-            const btn = document.getElementById('docTransformBtn');
-            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Transforming...'; }
+            const titleEl = document.getElementById('docDetailTitle');
+            const title = titleEl ? titleEl.textContent : 'Paper';
 
-            try {
-                const r = await fetch(`${API}/transform`, {
-                    method: 'POST',
-                    headers: {...H(), 'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        paper_id: currentDocId,
-                        podcast: true,
-                        content_type: 'paper'
-                    })
-                });
-                if (!r.ok) throw new Error(await r.text());
-                const d = await r.json();
-                
-                // Show transform result modal
-                const podcastStatus = d.podcast?.status === 'generating' 
-                    ? '<span style="color:#34d399">🎙️ Podcast wird generiert...</span>'
-                    : `<span style="color:#f59e0b">⚠️ ${d.podcast?.status || 'unbekannt'}</span>`;
-                
-                const outputs = d.available_outputs || {};
-                const outputBadges = [
-                    outputs.podcast ? '<span style="padding:3px 8px;background:rgba(52,211,153,0.15);border-radius:6px;color:#34d399;font-size:11px">🎙️ Podcast</span>' : '',
-                    outputs.mind_map ? '<span style="padding:3px 8px;background:rgba(96,165,250,0.15);border-radius:6px;color:#60a5fa;font-size:11px">🧠 Mind Map</span>' : '',
-                    outputs.video_overview ? '<span style="padding:3px 8px;background:rgba(244,114,182,0.15);border-radius:6px;color:#f472b6;font-size:11px">🎬 Video</span>' : '',
-                    outputs.reports ? '<span style="padding:3px 8px;background:rgba(251,191,36,0.15);border-radius:6px;color:#fbbf24;font-size:11px">📊 Reports</span>' : ''
-                ].filter(Boolean).join(' ');
-
-                const modal = document.createElement('div');
-                modal.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
-                modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
-                modal.innerHTML = `
-                    <div style="max-width:520px;width:100%;background:var(--navy-card);border:1px solid var(--border);border-radius:16px;overflow:hidden">
-                        <div style="padding:24px;border-bottom:1px solid var(--border)">
-                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-                                <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,rgba(168,85,247,0.2),rgba(236,72,153,0.2));display:flex;align-items:center;justify-content:center;font-size:24px">🎙️</div>
-                                <div>
-                                    <div style="font-size:16px;font-weight:600;color:var(--text-primary)">Content Transform</div>
-                                    <div style="font-size:12px;color:var(--text-muted)">NotebookLM Enterprise</div>
-                                </div>
-                            </div>
-                            <div style="font-size:14px;color:var(--text-secondary);margin-bottom:16px">${d.title}</div>
-                            <div style="display:flex;flex-direction:column;gap:10px">
-                                <div style="display:flex;justify-content:space-between;align-items:center">
-                                    <span style="font-size:12px;color:var(--text-muted)">Quelle</span>
-                                    <span style="font-size:12px;color:${d.source?.added ? '#34d399' : '#f59e0b'}">${d.source?.added ? '✓ Hinzugefügt' : '⚠️ Fehlgeschlagen'}</span>
-                                </div>
-                                <div style="display:flex;justify-content:space-between;align-items:center">
-                                    <span style="font-size:12px;color:var(--text-muted)">Podcast</span>
-                                    ${podcastStatus}
-                                </div>
-                            </div>
-                        </div>
-                        <div style="padding:16px 24px;border-bottom:1px solid var(--border)">
-                            <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Verfügbare Outputs</div>
-                            <div style="display:flex;flex-wrap:wrap;gap:6px">${outputBadges}</div>
-                        </div>
-                        <div style="padding:16px 24px;display:flex;gap:10px;justify-content:flex-end">
-                            <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer">Schliessen</button>
-                            <a href="${d.notebook_url}" target="_blank" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px">
-                                🔗 Notebook öffnen
-                            </a>
-                        </div>
-                    </div>`;
-                document.body.appendChild(modal);
-                
-                showToast('Content transformiert! Podcast wird generiert.', 'success');
-                if (btn) { btn.disabled = false; btn.innerHTML = '🎙️ Transform'; }
-            } catch(e) {
-                showToast(`Transform Fehler: ${e.message}`, 'error');
-                if (btn) { btn.disabled = false; btn.innerHTML = '🎙️ Transform'; }
-            }
+            showTransformChoice({
+                paperId: currentDocId,
+                title: title,
+                contentType: 'paper',
+                onDone: () => { const btn = document.getElementById('docTransformBtn'); if (btn) { btn.disabled = false; btn.innerHTML = '🎙️ Transform'; } }
+            });
         }
 
         async function classifyDocument() {
