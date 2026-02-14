@@ -11600,7 +11600,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const msgs = document.querySelectorAll('#chatMessages .chat-msg.user, #chatMessages .chat-msg.assistant');
             if (msgs.length === 0) { showToast('Keine aktive Session zum Schliessen', 'info'); return; }
             // Confirm
-            if (!await bxConfirm('Session schliessen? Der Chat-Verlauf wird gelöscht und eine neue Session gestartet.', {title:'Session schliessen', icon:'📜', confirmText:'Schliessen'})) return;
+            if (!await bxConfirm('Session schliessen und archivieren? Der Verlauf bleibt in der Session-History gespeichert.', {title:'Session schliessen', icon:'📜', confirmText:'Schliessen'})) return;
             // Optionally notify backend to close/archive
             try {
                 await fetch(`${API}/chat/session/${chatSessionId}/close`, {
@@ -11616,7 +11616,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             // Start fresh after brief delay
             setTimeout(() => {
                 startNewChatSession();
-                showToast('Session geschlossen – neuer Chat bereit', 'success');
+                showToast('Session archiviert – neuer Chat bereit', 'success');
             }, 600);
         }
         function updateCloseSessionBtn() {
@@ -11794,11 +11794,11 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         async function sessionClose(sid) {
-            if (!await bxConfirm('Session wirklich schliessen? Du kannst danach nicht mehr weiterschreiben.', {title:'Session schliessen', icon:'📜', confirmText:'Schliessen'})) return;
+            if (!await bxConfirm('Session archivieren? Der Verlauf bleibt gespeichert, aber du kannst nicht mehr weiterschreiben.', {title:'Session schliessen', icon:'📜', confirmText:'Archivieren'})) return;
             try {
                 const r = await fetch(`${API}/chat/session/${sid}/close`, {method:'POST', headers: H()});
                 if (!r.ok) throw new Error('Fehler');
-                showToast('Session geschlossen', 'success');
+                showToast('Session archiviert', 'success');
                 if (sid === chatSessionId) {
                     // Start new session
                     chatSessionId = 'S-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
