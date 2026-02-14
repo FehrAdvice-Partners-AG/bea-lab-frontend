@@ -769,10 +769,10 @@
                     <div class="chat-suggestions" id="chatWelcomeSuggestions">
                         <button class="chat-suggestion" onclick="askSuggestion(this)">Was ist das BCM?</button>
                         <button class="chat-suggestion" onclick="askSuggestion(this)">Erkläre Complementarity</button>
-                        <button class="chat-suggestion" onclick="askSuggestion(this)" style="border-color:rgba(52,211,153,0.2);color:rgba(52,211,153,0.6)">📋 Neues Projekt eröffnen</button>
-                        <button class="chat-suggestion" onclick="askSuggestion(this)" style="border-color:rgba(251,191,36,0.2);color:rgba(251,191,36,0.6)">🎯 Neuen Lead erfassen</button>
+                        <button class="chat-suggestion" onclick="askSuggestion(this)" style="border-color:rgba(52,211,153,0.2);color:rgba(52,211,153,0.6)">📋 Neues Mandat eröffnen</button>
+                        <button class="chat-suggestion" onclick="askSuggestion(this)" style="border-color:rgba(251,191,36,0.2);color:rgba(251,191,36,0.6)">🎯 Neuen Pipeline-Eintrag</button>
                         <button class="chat-suggestion" onclick="askSuggestion(this)" style="border-color:rgba(139,170,255,0.2);color:rgba(139,170,255,0.6)">🔬 BCM-Modell bauen</button>
-                        <button class="chat-suggestion" onclick="askSuggestion(this)" style="border-color:rgba(232,163,61,0.2);color:rgba(232,163,61,0.6)">🧠 Ausgangslage erfassen</button>
+                        <button class="chat-suggestion" onclick="askSuggestion(this)" style="border-color:rgba(232,163,61,0.2);color:rgba(232,163,61,0.6)">🧠 Kontext Ψ analysieren</button>
                     </div>
                 </div>
             </div>
@@ -784,7 +784,7 @@
                     <button id="btnCloseSession2" onclick="closeCurrentSession()" style="font-size:10px;padding:2px 8px;background:rgba(220,80,80,0.05);border:1px solid rgba(220,80,80,0.12);border-radius:4px;color:rgba(220,130,130,0.5);cursor:pointer;display:none;font-family:inherit">✕ Session schliessen</button>
                 </div>
                 <div id="prjChatIndicator" style="padding:6px 14px;margin-bottom:6px;background:rgba(42,127,142,0.06);border:1px solid rgba(42,127,142,0.15);border-radius:8px;font-size:11px;color:rgba(42,127,142,0.7)">
-                    💡 <strong>BEATRIX Command Mode</strong> – Projekte, Leads, Modelle, Kontext per Sprache.
+                    💡 <strong>BEATRIX Command Mode</strong> – Pipeline, Mandate, Modelle, Kontext Ψ per Sprache.
                     <span onclick="toggleBxCmd()" style="cursor:pointer;margin-left:8px;color:rgba(255,255,255,0.3)">✕</span>
                 </div>
                 <div id="mainChatAttachments" style="display:none;padding:0 0 8px;display:flex;flex-wrap:wrap;gap:6px"></div>
@@ -11475,13 +11475,12 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
         }
 
         const SESSION_TYPES = {
-            lead: {label:'Lead Management', icon:'🎯', color:'251,191,36'},
-            project: {label:'Projekt', icon:'📋', color:'52,211,153'},
-            model: {label:'BCM Modell', icon:'🔬', color:'139,170,255'},
-            context: {label:'Kontext-Analyse', icon:'🧠', color:'232,163,61'},
-            research: {label:'Research', icon:'📚', color:'168,162,255'},
-            task: {label:'Aufgabe', icon:'✅', color:'120,200,120'},
-            general: {label:'Allgemein', icon:'💬', color:'42,127,142'}
+            lead: {label:'Pipeline', icon:'🎯', color:'251,191,36', desc:'Akquise & Neugeschäft', when:'Neuer Kontakt, Anfrage, Angebot in Arbeit', not:'Auftrag erteilt → Mandat'},
+            project: {label:'Mandat', icon:'📋', color:'52,211,153', desc:'Aktive Kundenprojekte', when:'Kunde hat beauftragt, Projekt läuft', not:'Noch kein Auftrag → Pipeline'},
+            model: {label:'Modell', icon:'🔬', color:'139,170,255', desc:'BCM-Modellierung & Interventionsdesign', when:'BCM bauen, Axiome, Interventionen designen', not:'Nur Kontext verstehen → Kontext Ψ'},
+            context: {label:'Kontext Ψ', icon:'🧠', color:'232,163,61', desc:'Situationsanalyse mit 8 Ψ-Dimensionen', when:'Situation analysieren, Zielgruppe verstehen', not:'Intervention designen → Modell'},
+            research: {label:'Literatur', icon:'📚', color:'168,162,255', desc:'Akademische Recherche & Knowledge Base', when:'Paper suchen, Studie zitieren, Theorie', not:'Projektbezogene Frage → Mandat'},
+            general: {label:'Fragen', icon:'💬', color:'42,127,142', desc:'Allgemeine Fragen & schnelle Antworten', when:'Schnelle Antwort, kein spezifischer Kontext', not:'Spezifischer Kontext hilft → anderen Typ'}
         };
         let chatSessionType = 'general';
         let chatSessionEntities = {};
@@ -11780,11 +11779,17 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             if (old) { old.remove(); return; }
             const types = Object.entries(SESSION_TYPES).filter(([k]) => k !== 'general');
             let html = types.map(([k, v]) =>
-                `<div onclick="switchSessionType('${k}')" style="padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;border-radius:6px;transition:background 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.08)'" onmouseleave="this.style.background='transparent'"><span style="font-size:14px">${v.icon}</span><span style="font-size:12px;color:rgba(${v.color},0.9)">${v.label}</span></div>`
+                `<div onclick="switchSessionType('${k}')" style="padding:8px 12px;cursor:pointer;border-radius:6px;transition:background 0.15s;border-bottom:1px solid rgba(255,255,255,0.05)" onmouseenter="this.style.background='rgba(255,255,255,0.08)'" onmouseleave="this.style.background='transparent'" title="✓ ${v.when}\n✗ ${v.not}">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:14px">${v.icon}</span>
+                        <span style="font-size:12px;font-weight:600;color:rgba(${v.color},0.9)">${v.label}</span>
+                    </div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;padding-left:22px">${v.desc}</div>
+                </div>`
             ).join('');
             const picker = document.createElement('div');
             picker.id = 'sessionTypePicker';
-            picker.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,0.3)';
+            picker.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,0.3)';
             picker.innerHTML = html;
             anchor.parentElement.style.position = 'relative';
             anchor.parentElement.appendChild(picker);
