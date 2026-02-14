@@ -4339,6 +4339,7 @@
                                 <button id="docIntegrityBtn" onclick="integrityCheckDocument()" style="padding:5px 12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#f87171;font-size:11px;cursor:pointer;white-space:nowrap" title="Integrity Scan">🔍 Integrity</button>
                                 <button id="docMultiReviewBtn" onclick="multiReviewDocument()" style="padding:5px 12px;background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3);border-radius:8px;color:#34d399;font-size:11px;cursor:pointer;white-space:nowrap" title="3 Perspektiven Review">⚔️ Multi</button>
                                 <button id="docClassifyBtn" onclick="classifyDocument()" style="padding:5px 12px;background:rgba(42,127,142,0.15);border:1px solid rgba(42,127,142,0.3);border-radius:8px;color:var(--accent);font-size:11px;cursor:pointer;white-space:nowrap">🧬 Klassifizieren</button>
+                                <button id="docTransformBtn" onclick="transformDocument()" style="padding:5px 12px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.3);border-radius:8px;color:#c084fc;font-size:11px;cursor:pointer;white-space:nowrap" title="NotebookLM: Podcast + Mind Map + Video">🎙️ Transform</button>
                                 <button onclick="document.getElementById('docDetailModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
                             </div>
                         </div>
@@ -4485,6 +4486,83 @@
             }
 
             el.innerHTML = html;
+        }
+
+        async function transformDocument() {
+            if (!currentDocId) return;
+            const btn = document.getElementById('docTransformBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Transforming...'; }
+
+            try {
+                const r = await fetch(`${API}/transform`, {
+                    method: 'POST',
+                    headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        paper_id: currentDocId,
+                        podcast: true,
+                        content_type: 'paper'
+                    })
+                });
+                if (!r.ok) throw new Error(await r.text());
+                const d = await r.json();
+                
+                // Show transform result modal
+                const podcastStatus = d.podcast?.status === 'generating' 
+                    ? '<span style="color:#34d399">🎙️ Podcast wird generiert...</span>'
+                    : `<span style="color:#f59e0b">⚠️ ${d.podcast?.status || 'unbekannt'}</span>`;
+                
+                const outputs = d.available_outputs || {};
+                const outputBadges = [
+                    outputs.podcast ? '<span style="padding:3px 8px;background:rgba(52,211,153,0.15);border-radius:6px;color:#34d399;font-size:11px">🎙️ Podcast</span>' : '',
+                    outputs.mind_map ? '<span style="padding:3px 8px;background:rgba(96,165,250,0.15);border-radius:6px;color:#60a5fa;font-size:11px">🧠 Mind Map</span>' : '',
+                    outputs.video_overview ? '<span style="padding:3px 8px;background:rgba(244,114,182,0.15);border-radius:6px;color:#f472b6;font-size:11px">🎬 Video</span>' : '',
+                    outputs.reports ? '<span style="padding:3px 8px;background:rgba(251,191,36,0.15);border-radius:6px;color:#fbbf24;font-size:11px">📊 Reports</span>' : ''
+                ].filter(Boolean).join(' ');
+
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
+                modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
+                modal.innerHTML = `
+                    <div style="max-width:520px;width:100%;background:var(--navy-card);border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                        <div style="padding:24px;border-bottom:1px solid var(--border)">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+                                <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,rgba(168,85,247,0.2),rgba(236,72,153,0.2));display:flex;align-items:center;justify-content:center;font-size:24px">🎙️</div>
+                                <div>
+                                    <div style="font-size:16px;font-weight:600;color:var(--text-primary)">Content Transform</div>
+                                    <div style="font-size:12px;color:var(--text-muted)">NotebookLM Enterprise</div>
+                                </div>
+                            </div>
+                            <div style="font-size:14px;color:var(--text-secondary);margin-bottom:16px">${d.title}</div>
+                            <div style="display:flex;flex-direction:column;gap:10px">
+                                <div style="display:flex;justify-content:space-between;align-items:center">
+                                    <span style="font-size:12px;color:var(--text-muted)">Quelle</span>
+                                    <span style="font-size:12px;color:${d.source?.added ? '#34d399' : '#f59e0b'}">${d.source?.added ? '✓ Hinzugefügt' : '⚠️ Fehlgeschlagen'}</span>
+                                </div>
+                                <div style="display:flex;justify-content:space-between;align-items:center">
+                                    <span style="font-size:12px;color:var(--text-muted)">Podcast</span>
+                                    ${podcastStatus}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="padding:16px 24px;border-bottom:1px solid var(--border)">
+                            <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Verfügbare Outputs</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px">${outputBadges}</div>
+                        </div>
+                        <div style="padding:16px 24px;display:flex;gap:10px;justify-content:flex-end">
+                            <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer">Schliessen</button>
+                            <a href="${d.notebook_url}" target="_blank" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px">
+                                🔗 Notebook öffnen
+                            </a>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+                
+                showToast('Content transformiert! Podcast wird generiert.', 'success');
+                if (btn) { btn.disabled = false; btn.innerHTML = '🎙️ Transform'; }
+            } catch(e) {
+                showToast(`Transform Fehler: ${e.message}`, 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '🎙️ Transform'; }
+            }
         }
 
         async function classifyDocument() {
