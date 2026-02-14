@@ -11120,26 +11120,65 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
             const maxAttempts = 60; // 5 min max
             const interval = 5000; // 5 seconds
             const phases = [
-                'BEATRIX liest das Evidence-Based Framework...',
-                'Analysiert relevante Modelle und Axiome...',
-                'Prüft Ψ-Dimensionen und Kontextfaktoren...',
-                'Formuliert die Antwort...'
+                { pct: 8,  icon: '📖', text: 'BEATRIX liest das Evidence-Based Framework...' },
+                { pct: 20, icon: '🔍', text: 'Durchsucht Knowledge Base nach Kontext...' },
+                { pct: 35, icon: '🧠', text: 'Analysiert relevante Modelle und Axiome...' },
+                { pct: 50, icon: 'Ψ',  text: 'Prüft Ψ-Dimensionen und Kontextfaktoren...' },
+                { pct: 65, icon: '⚖️', text: 'Bewertet Evidenzstärke und Konfidenz...' },
+                { pct: 78, icon: '🔬', text: 'Synthetisiert die EBF-Analyse...' },
+                { pct: 88, icon: '✍️', text: 'Formuliert die Antwort...' },
+                { pct: 95, icon: '✅', text: 'Finalisiert...' }
             ];
 
+            // Create modal
+            const modal = document.createElement('div');
+            modal.id = 'deepAnalysisModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);animation:fadeIn 0.2s ease';
+            modal.innerHTML = `
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:460px;width:90vw;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:slideUp 0.25s ease;text-align:center">
+                    <div id="deepIcon" style="font-size:36px;margin-bottom:16px;transition:all 0.3s ease">🔬</div>
+                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:6px" id="deepTitle">Deep Analysis läuft</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px">BEATRIX erarbeitet eine neue EBF-Analyse (~3-5 Min)</div>
+                    <div style="background:rgba(255,255,255,0.06);border-radius:8px;height:6px;overflow:hidden;margin-bottom:12px;position:relative">
+                        <div id="deepBar" style="height:100%;border-radius:8px;width:0%;transition:width 0.6s cubic-bezier(0.4,0,0.2,1);background:linear-gradient(90deg,rgba(168,85,247,0.8),rgba(52,211,153,0.8))"></div>
+                    </div>
+                    <div id="deepStep" style="font-size:12px;color:var(--text-secondary);min-height:18px;transition:opacity 0.2s">Starte Analyse...</div>
+                    <div style="margin-top:16px;font-size:11px;color:var(--text-muted)" id="deepIssue">Issue #${issueNumber}</div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const bar = document.getElementById('deepBar');
+            const stepEl = document.getElementById('deepStep');
+            const iconEl = document.getElementById('deepIcon');
+
             for (let i = 0; i < maxAttempts; i++) {
-                // Update phase message
-                const phase = phases[Math.min(Math.floor(i / 5), phases.length - 1)];
-                updateTypingText(phase);
+                // Update phase visuals
+                const phase = phases[Math.min(Math.floor(i * phases.length / maxAttempts * 2), phases.length - 1)];
+                if (bar) bar.style.width = phase.pct + '%';
+                if (iconEl) iconEl.textContent = phase.icon;
+                if (stepEl) { stepEl.style.opacity = '0'; setTimeout(() => { if(stepEl) { stepEl.textContent = phase.text; stepEl.style.opacity = '1'; } }, 200); }
 
                 await new Promise(r => setTimeout(r, interval));
                 try {
                     const r = await fetch(`${API}/chat/poll/${issueNumber}`, {headers:H()});
-                    if (r.status === 401) { doLogout(); return null; }
+                    if (r.status === 401) { modal.remove(); doLogout(); return null; }
                     const data = await r.json();
-                    if (data.status === 'done') return data;
-                    if (data.status === 'error') return {status:'error', answer: data.message};
+                    if (data.status === 'done') {
+                        // Success state
+                        if (bar) { bar.style.width = '100%'; bar.style.background = 'linear-gradient(90deg,rgba(52,211,153,0.9),rgba(52,211,153,0.7))'; }
+                        if (iconEl) iconEl.textContent = '✅';
+                        if (stepEl) stepEl.textContent = 'Analyse abgeschlossen!';
+                        const titleEl = document.getElementById('deepTitle');
+                        if (titleEl) titleEl.textContent = '✅ EBF-Analyse fertig';
+                        await new Promise(r => setTimeout(r, 1200));
+                        modal.remove();
+                        return data;
+                    }
+                    if (data.status === 'error') { modal.remove(); return {status:'error', answer: data.message}; }
                 } catch(e) { /* retry */ }
             }
+            modal.remove();
             return {status: 'timeout', answer: 'Die Analyse dauert länger als erwartet. Die Antwort wird in Issue #' + issueNumber + ' auf GitHub erscheinen.'};
         }
 
@@ -11413,7 +11452,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                         removeTyping();
                         appendMessage('assistant', d.answer, d.sources);
                     } else if (d.status === 'processing' && d.issue_number) {
-                        showTyping('Neue Frage! BEATRIX erarbeitet die Antwort mit dem EBF Framework (~3-5 Min)...');
+                        removeTyping();
                         const result = await pollForAnswer(d.issue_number);
                         removeTyping();
                         if (result && result.answer) {
