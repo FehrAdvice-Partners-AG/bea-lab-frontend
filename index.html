@@ -4488,6 +4488,55 @@
             el.innerHTML = html;
         }
 
+        async function transformAnswer(msgId) {
+            const msgEl = document.getElementById(msgId);
+            if (!msgEl) return;
+            const bodyEl = msgEl.querySelector('.chat-msg-body');
+            const originalText = bodyEl.innerText.replace(/📋 Kopieren|🔥 Challenge|🎙️ Transform/g,'').trim();
+            if (!originalText || originalText.length < 30) { showToast('Zu wenig Text für Transform', 'info'); return; }
+
+            const transformBtn = msgEl.querySelector('[onclick*="transformAnswer"]');
+            const origBtnHtml = transformBtn ? transformBtn.outerHTML : '';
+            if (transformBtn) { transformBtn.disabled = true; transformBtn.innerHTML = '⏳...'; }
+
+            try {
+                const r = await fetch(`${API}/transform`, {
+                    method: 'POST',
+                    headers: {...H(), 'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        title: 'BEATRIX: ' + originalText.slice(0, 60).replace(/\n/g,' ') + '...',
+                        text: originalText.slice(0, 100000),
+                        podcast: true,
+                        content_type: 'chat'
+                    })
+                });
+                if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || 'Transform failed');
+                const d = await r.json();
+                
+                const podcastOk = d.podcast?.status === 'generating';
+                const resultHtml = `<div style="margin-top:8px;padding:14px;background:rgba(168,85,247,0.04);border:1px solid rgba(168,85,247,0.12);border-radius:10px">
+                    <div style="font-size:10px;color:#a855f7;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">🎙️ CONTENT TRANSFORM – NotebookLM Enterprise</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+                        <span style="padding:3px 8px;background:rgba(52,211,153,0.1);border-radius:6px;color:#34d399;font-size:10px">✓ Notebook</span>
+                        ${d.source?.added ? '<span style="padding:3px 8px;background:rgba(52,211,153,0.1);border-radius:6px;color:#34d399;font-size:10px">✓ Quelle</span>' : '<span style="padding:3px 8px;background:rgba(245,158,11,0.1);border-radius:6px;color:#f59e0b;font-size:10px">⚠ Quelle</span>'}
+                        ${podcastOk ? '<span style="padding:3px 8px;background:rgba(52,211,153,0.1);border-radius:6px;color:#34d399;font-size:10px">🎙️ Podcast generiert...</span>' : '<span style="padding:3px 8px;background:rgba(245,158,11,0.1);border-radius:6px;color:#f59e0b;font-size:10px">⚠ Podcast</span>'}
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <a href="${d.notebook_url}" target="_blank" style="padding:4px 12px;border-radius:6px;background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(236,72,153,0.15));border:1px solid rgba(168,85,247,0.3);color:#c084fc;font-size:11px;text-decoration:none;font-weight:600">🔗 Notebook öffnen</a>
+                        <span style="padding:4px 10px;border-radius:6px;background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.15);color:rgba(96,165,250,0.6);font-size:10px">🧠 Mind Map</span>
+                        <span style="padding:4px 10px;border-radius:6px;background:rgba(244,114,182,0.08);border:1px solid rgba(244,114,182,0.15);color:rgba(244,114,182,0.6);font-size:10px">🎬 Video</span>
+                        <span style="padding:4px 10px;border-radius:6px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.15);color:rgba(251,191,36,0.6);font-size:10px">📊 Reports</span>
+                    </div>
+                </div>`;
+                
+                if (transformBtn) transformBtn.outerHTML = resultHtml;
+                showToast('Content transformiert! Podcast wird generiert.', 'success');
+            } catch(e) {
+                showToast('Transform Fehler: ' + e.message, 'error');
+                if (transformBtn) { transformBtn.disabled = false; transformBtn.innerHTML = '🎙️ Transform'; }
+            }
+        }
+
         async function transformDocument() {
             if (!currentDocId) return;
             const btn = document.getElementById('docTransformBtn');
@@ -4921,6 +4970,7 @@
             body.insertAdjacentHTML('beforeend', `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);display:flex;gap:6px">
                 <button onclick="copyAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:rgba(255,255,255,0.3);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(255,255,255,0.6)'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.3)'">📋 Kopieren</button>
                 <button onclick="challengeAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(255,140,0,0.2);background:transparent;color:rgba(255,140,0,0.5);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(255,140,0,0.1)';this.style.color='#ff8c00'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,140,0,0.5)'">🔥 Challenge</button>
+                    <button onclick="transformAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(168,85,247,0.2);background:transparent;color:rgba(168,85,247,0.5);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(168,85,247,0.1)';this.style.color='#a855f7'" onmouseleave="this.style.background='transparent';this.style.color='rgba(168,85,247,0.5)'">🎙️ Transform</button>
             </div>`);
         }
 
@@ -8723,6 +8773,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);display:flex;gap:6px">
                     <button onclick="copyAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:rgba(255,255,255,0.3);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(255,255,255,0.6)'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.3)'">📋 Kopieren</button>
                     <button onclick="challengeAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(255,140,0,0.2);background:transparent;color:rgba(255,140,0,0.5);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(255,140,0,0.1)';this.style.color='#ff8c00'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,140,0,0.5)'">🔥 Challenge</button>
+                    <button onclick="transformAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(168,85,247,0.2);background:transparent;color:rgba(168,85,247,0.5);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(168,85,247,0.1)';this.style.color='#a855f7'" onmouseleave="this.style.background='transparent';this.style.color='rgba(168,85,247,0.5)'">🎙️ Transform</button>
                 </div>`;
             }
             html += `</div></div>`;
@@ -10887,6 +10938,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                 html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);display:flex;gap:6px">
                     <button onclick="copyAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:rgba(255,255,255,0.3);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(255,255,255,0.6)'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,255,255,0.3)'">📋 Kopieren</button>
                     <button onclick="challengeAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(255,140,0,0.2);background:transparent;color:rgba(255,140,0,0.5);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(255,140,0,0.1)';this.style.color='#ff8c00'" onmouseleave="this.style.background='transparent';this.style.color='rgba(255,140,0,0.5)'">🔥 Challenge</button>
+                    <button onclick="transformAnswer('${msgId}')" style="padding:3px 10px;border-radius:6px;border:1px solid rgba(168,85,247,0.2);background:transparent;color:rgba(168,85,247,0.5);font-size:10px;cursor:pointer;transition:all 0.15s" onmouseenter="this.style.background='rgba(168,85,247,0.1)';this.style.color='#a855f7'" onmouseleave="this.style.background='transparent';this.style.color='rgba(168,85,247,0.5)'">🎙️ Transform</button>
                 </div>`;
             }
             html += `</div></div>`;
