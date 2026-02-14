@@ -4589,12 +4589,12 @@
                 updateTransformStep(progressId, 1, 'running');
                 let deepTitle = opts.title || 'BEATRIX Deep Analysis';
                 if (challengeData) {
-                    let reviewText = '\\n\\n══ APE MULTI-MODEL ANALYSIS ══\\n';
+                    let reviewText = '\n\n══ APE MULTI-MODEL ANALYSIS ══\n';
                     for (const [key, ch] of Object.entries(challengeData.challenges || {})) {
-                        reviewText += `\\n── ${ch.name} (${ch.model}) ──\\n${ch.challenge || ch.review || ''}\\n`;
+                        reviewText += `\n── ${ch.name} (${ch.model}) ──\n${ch.challenge || ch.review || ''}\n`;
                     }
                     if (challengeData.synthesis) {
-                        reviewText += `\\n── SYNTHESIS ──\\n${challengeData.synthesis}\\n`;
+                        reviewText += `\n── SYNTHESIS ──\n${challengeData.synthesis}\n`;
                     }
                     enrichedText = enrichedText + reviewText;
                     deepTitle = '🔬 Deep: ' + deepTitle;
