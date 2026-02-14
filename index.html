@@ -12013,6 +12013,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                                         }
                                     }
                                     targetEl.innerHTML = mbRenderMd(fullText);
+                                    addMsgActionButtons(targetEl);
                                 } catch(e) {
                                     targetEl.innerHTML = e.name === 'AbortError'
                                         ? '<span style="color:#fbbf24">⏱ Zeitüberschreitung – bitte nochmal versuchen.</span>'
