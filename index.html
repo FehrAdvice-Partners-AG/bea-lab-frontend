@@ -5079,6 +5079,7 @@
                     html += `<div style="padding:10px 14px;background:rgba(255,140,0,0.05);border:1px solid rgba(255,140,0,0.15);border-radius:8px;margin-bottom:8px">
                         <div style="font-size:10px;color:#ff8c00;font-weight:600;margin-bottom:4px">🔄 Synthese</div>
                         <div style="font-size:11px;color:var(--text-secondary);line-height:1.5">${d.synthesis_preview}</div>
+                        <button onclick="copySynthesis(this, '${encodeURIComponent(d.synthesis_preview)}')" style="margin-top:8px;padding:5px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.6);font-size:10px;cursor:pointer">📋 Kopieren</button>
                     </div>`;
                 }
 
@@ -5183,6 +5184,64 @@
             if (btn && ok) { const orig = btn.innerHTML; btn.innerHTML = '✅ Kopiert'; setTimeout(() => btn.innerHTML = orig, 1500); }
         }
 
+        async function copyChallengeResult(btn) {
+            // Get synthesis from data attribute
+            const synthesis = decodeURIComponent(btn.dataset.synthesis || '');
+            // Also get all challenge texts from the parent container
+            const container = btn.closest('div[style*="rgba(255,140,0"]');
+            let fullText = '';
+            if (container) {
+                // Get challenge texts
+                container.querySelectorAll('div[style*="border-left"]').forEach(ch => {
+                    const name = ch.querySelector('strong')?.innerText || '';
+                    const text = ch.querySelector('div[style*="line-height"]')?.innerText || '';
+                    if (name && text) fullText += `── ${name} ──\n${text}\n\n`;
+                });
+            }
+            if (synthesis) fullText += `── SYNTHESE ──\n${synthesis}`;
+            
+            let ok = false;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try { await navigator.clipboard.writeText(fullText.trim()); ok = true; } catch(e) {}
+            }
+            if (!ok) {
+                const ta = document.createElement('textarea');
+                ta.value = fullText.trim();
+                ta.setAttribute('readonly', '');
+                ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0.01';
+                document.body.appendChild(ta);
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                if (isIOS) {
+                    ta.contentEditable = true; ta.readOnly = false;
+                    ta.setSelectionRange(0, 999999);
+                } else { ta.select(); }
+                try { ok = document.execCommand('copy'); } catch(e) {}
+                document.body.removeChild(ta);
+            }
+            if (ok) { const orig = btn.innerHTML; btn.innerHTML = '✅ Kopiert'; setTimeout(() => btn.innerHTML = orig, 1500); }
+        }
+
+        async function copySynthesis(btn, encodedText) {
+            const text = decodeURIComponent(encodedText);
+            let ok = false;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try { await navigator.clipboard.writeText(text); ok = true; } catch(e) {}
+            }
+            if (!ok) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0.01';
+                document.body.appendChild(ta);
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                if (isIOS) { ta.contentEditable = true; ta.readOnly = false; ta.setSelectionRange(0, 999999); }
+                else { ta.select(); }
+                try { ok = document.execCommand('copy'); } catch(e) {}
+                document.body.removeChild(ta);
+            }
+            if (ok) { const orig = btn.innerHTML; btn.innerHTML = '✅ Kopiert'; setTimeout(() => btn.innerHTML = orig, 1500); }
+        }
+
         async function challengeAnswer(msgId) {
             const msgEl = document.getElementById(msgId);
             if (!msgEl) return;
@@ -5234,6 +5293,11 @@
                         <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${formatMessage(d.synthesis)}</div>
                     </div>`;
                 }
+
+                // Add copy button for the entire challenge result
+                html += `<div style="margin-top:10px;display:flex;gap:8px">
+                    <button onclick="copyChallengeResult(this)" data-synthesis="${encodeURIComponent(d.synthesis || '')}" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.6);font-size:11px;cursor:pointer">📋 Kopieren</button>
+                </div>`;
 
                 html += `</div>`;
 
