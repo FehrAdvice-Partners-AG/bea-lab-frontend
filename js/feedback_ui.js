@@ -110,7 +110,7 @@ class FeedbackWidget {
         if (!message) { alert('Bitte gib eine Nachricht ein.'); return; }
 
         try {
-            const token = localStorage.getItem('bea_token');
+            const token = sessionStorage.getItem('bea_token');
             const resp = await fetch(`${FEEDBACK_CONFIG.API_BASE}/api/feedback`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -196,7 +196,7 @@ class FeedbackAdminDashboard {
         if (!listEl) return;
 
         try {
-            const token = localStorage.getItem('bea_token');
+            const token = sessionStorage.getItem('bea_token');
             const resp = await fetch(`${FEEDBACK_CONFIG.API_BASE}/api/admin/feedback`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -271,7 +271,7 @@ let feedbackAdmin = null;
 
 // Init widget for logged-in users
 document.addEventListener('DOMContentLoaded', () => {
-    if (localStorage.getItem('bea_token')) {
+    if (sessionStorage.getItem('bea_token')) {
         feedbackWidget = new FeedbackWidget();
     }
 });
