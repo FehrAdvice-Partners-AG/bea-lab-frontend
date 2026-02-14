@@ -12151,7 +12151,7 @@ Parameter sind KONTEXTABHÄNGIG: λ(Ψ), β(Ψ), θ(Ψ) — KEINE Konstanten!`;
                                     const sr = await fetch(`${API}/chat/stream`, {
                                         method:'POST', headers:{...H(),'Content-Type':'application/json'},
                                         signal: kbAbort.signal,
-                                        body: JSON.stringify({question: message, session_id: chatSessionId, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))})
+                                        body: JSON.stringify({question: message, session_id: chatSessionId, analysis_mode: analysisMode, attachments: currentAttachments.map(a => ({type:a.type, name:a.name, content_text:a.content_text, image_base64:a.image_base64, media_type:a.media_type}))})
                                     });
                                     const sReader = sr.body.getReader();
                                     const sDec = new TextDecoder();
